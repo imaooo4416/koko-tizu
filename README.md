@@ -39,7 +39,7 @@
 | シンプル地図タイル | [CartoDB Positron](https://carto.com/attributions) | CC BY 3.0 + ODbL |
 | 鉄道路線オーバーレイ | [OpenRailwayMap](https://www.openrailwaymap.org/) | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) |
 | 地図データ（OSM 由来） | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
-| 鉄道路線・駅データ（加工） | [国土数値情報 鉄道時系列データ N02](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02.html)（国土交通省） | [政府標準利用規約 2.0](https://www.digital.go.jp/resources/data_policy) |
+| 鉄道路線・駅データ（加工） | [国土数値情報 鉄道時系列データ N02](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-v3_1.html)（国土交通省） | [政府標準利用規約 2.0](https://www.digital.go.jp/copyright-policy/) |
 
 出典：「国土数値情報（鉄道時系列データ）」（国土交通省）を加工して作成。加工内容（関西エリア絞り込み・JR西日本東海道線の3区間分割など）は [LICENSE](LICENSE) を参照してください。
 
