@@ -1892,9 +1892,47 @@ function generatePDF() {
 
   // Render one Leaflet map per prefecture (containers are now visible → size correctly)
   paMaps = [];
+  // メイン地図の状態を取得（PDFに反映するため）
+  var useSimple   = map.hasLayer(tileSimple);
+  var railOn      = map.hasLayer(railwayLayer);
+  var alongOn     = fs.alongRail;
+  var railSegs    = window._railSegs || [];          // [{op, latlngs, color}, ...]
+  var alongStations = window._alongRailStations || []; // [{n, l, o, lat, lng}, ...]
+
   mapTargets.forEach(function(t) {
     var mp = L.map(t.id, { zoomControl: false, attributionControl: false, zoomSnap: 0 });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(mp);
+    // ベースタイル: メインと同じ淡色/シンプルを反映
+    if (useSimple) {
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+        maxZoom: 19, subdomains: "abcd"
+      }).addTo(mp);
+    } else {
+      L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+        maxZoom: 18
+      }).addTo(mp);
+    }
+    // 鉄道路線オーバーレイ（メインでONなら反映）
+    if (railOn) {
+      L.tileLayer("https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png", {
+        maxZoom: 19, opacity: 0.85, subdomains: "abc"
+      }).addTo(mp);
+    }
+    // 選択中の路線をハイライト描画
+    railSegs.forEach(function(s) {
+      L.polyline(s.latlngs, { color: s.color, weight: 2.6, opacity: 0.85, lineCap: "round", lineJoin: "round" }).addTo(mp);
+    });
+    // 沿線モード時は1.2km円
+    if (alongOn) {
+      alongStations.forEach(function(st) {
+        L.circle([st.lat, st.lng], {
+          radius: 1200,
+          color: "#5DBDA3", weight: 1,
+          fillColor: "#7DD8C0", fillOpacity: 0.12,
+          interactive: false
+        }).addTo(mp);
+      });
+    }
+
     var pts = [];
     var col = PC[t.p];
     t.list.forEach(function(m) {
@@ -1919,7 +1957,9 @@ function generatePDF() {
   setTimeout(function() {
     paMaps.forEach(function(mp) { mp.invalidateSize(); });
     setTimeout(function() {
-      window.print();
+      // Test hook: ?noprint=1 で印刷ダイアログをスキップ
+      var skipPrint = location.search.indexOf("noprint=1") >= 0;
+      if (!skipPrint) window.print();
       btn.disabled = false;
       btn.innerHTML = "&#x1F5A8; 表示中の一覧をPDF保存";
     }, 1400);
