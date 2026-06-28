@@ -1337,7 +1337,7 @@ var railwayLayer = L.tileLayer("https://{s}.tiles.openrailwaymap.org/standard/{z
 });
 
 L.control.layers(
-  { "淡色": tilePale, "シンプル": tileSimple },
+  { "詳細": tilePale, "シンプル": tileSimple },
   { "🚆 鉄道路線": railwayLayer },
   { position: "topright", collapsed: false }
 ).addTo(map);
