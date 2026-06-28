@@ -39,14 +39,14 @@
 | シンプル地図タイル | [CartoDB Positron](https://carto.com/attributions) | CC BY 3.0 + ODbL |
 | 鉄道路線オーバーレイ | [OpenRailwayMap](https://www.openrailwaymap.org/) | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) |
 | 地図データ（OSM 由来） | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
-| 鉄道路線・駅データ（加工） | [国土数値情報 鉄道時系列データ N02](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-v3_1.html)（国土交通省） | [政府標準利用規約 2.0](https://www.digital.go.jp/copyright-policy/) |
+| 鉄道路線・駅データ（加工） | [国土数値情報 鉄道時系列データ N02](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-v3_1.html)（国土交通省） | [公共データ利用規約 第1.0版（PDL1.0）](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0) |
 
-出典：「国土数値情報（鉄道時系列データ）」（国土交通省）を加工して作成。加工内容（関西エリア絞り込み・JR西日本東海道線の3区間分割など）は [LICENSE](LICENSE) を参照してください。
+出典：「国土数値情報（鉄道時系列データ）」（国土交通省）（https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-v3_1.html）をもとに koko-tizu project が加工して作成。PDL1.0は商用利用・再配布・改変いずれも許諾（CC BY 4.0互換）。加工内容（関西エリア絞り込み・JR西日本東海道線の3区間分割など）は [LICENSE](LICENSE) を参照してください。
 
 ## ライセンス
 
 - **アプリ本体のソースコード（`index.html`）**: [MIT License](LICENSE)
-- **同梱データ（`rail_lines.json` / `rail_stations.json`）**: 政府標準利用規約 2.0（国土数値情報の加工データ）
+- **同梱データ（`rail_lines.json` / `rail_stations.json`）**: PDL1.0（国土数値情報 N02 を加工した派生データ／CC BY 4.0互換）
 - **地図タイル・フォント等の第三者依存**: それぞれの規約に従う
 
 詳細は [LICENSE](LICENSE) を参照してください。
