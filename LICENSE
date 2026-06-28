@@ -1,6 +1,12 @@
-MIT License
+MIT License (Original Code Only)
 
 Copyright (c) 2026
+
+The MIT License below applies to the ORIGINAL SOURCE CODE in this repository
+authored by the project owner (primarily `index.html`). Third-party libraries,
+map tiles, fonts, and datasets included or referenced are governed by their
+own respective licenses; see the THIRD-PARTY LICENSES AND ATTRIBUTIONS
+section below.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,9 +30,9 @@ SOFTWARE.
 THIRD-PARTY LICENSES AND ATTRIBUTIONS
 ================================================================================
 
-This software depends on the following third-party services and libraries.
-Their licenses and attribution requirements apply to their respective
-components and are reproduced/summarized below.
+This software depends on the following third-party services, libraries, and
+datasets. Their licenses and attribution requirements apply to their respective
+components.
 
 --------------------------------------------------------------------------------
 Leaflet (v1.9.4)
@@ -61,26 +67,94 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------------
-OpenStreetMap (Map Tiles and Data)
+地理院タイル (淡色地図) / GSI Tiles (Pale)
+https://maps.gsi.go.jp/development/ichiran.html
+License: 国土地理院コンテンツ利用規約
+https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html
+--------------------------------------------------------------------------------
+
+This project displays the attribution "地理院タイル" (GSI Tiles) on the
+map UI as required by the terms of use.
+
+Per the Geospatial Information Authority of Japan (GSI) content terms:
+- Tiles may be used freely when their source is clearly indicated.
+- If tiles are copied, edited, or redistributed in modified form, prior
+  approval from GSI may be required under Article 4 of the terms.
+- Authoritative reference: https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html
+
+--------------------------------------------------------------------------------
+CartoDB Positron Tiles (シンプル地図)
+https://carto.com/basemaps/
+License: CC BY 3.0 (tile style) + ODbL (underlying OpenStreetMap data)
+https://creativecommons.org/licenses/by/3.0/
+--------------------------------------------------------------------------------
+
+Tile design © CARTO, licensed under Creative Commons Attribution 3.0.
+Underlying map data © OpenStreetMap contributors, licensed under the
+Open Database License (ODbL). Both attributions are shown in the map UI.
+
+--------------------------------------------------------------------------------
+OpenRailwayMap (鉄道路線オーバーレイ)
+https://www.openrailwaymap.org/
+License: CC BY-SA 2.0 (tile rendering)
+https://creativecommons.org/licenses/by-sa/2.0/
+--------------------------------------------------------------------------------
+
+Tile rendering © OpenRailwayMap contributors, licensed under
+Creative Commons Attribution-ShareAlike 2.0. The underlying railway data
+is sourced from OpenStreetMap contributors and licensed under ODbL.
+Attribution is shown in the map UI when the overlay is enabled.
+
+Note on ShareAlike: This project uses OpenRailwayMap tiles as a visual
+overlay (raster image). Tiles are loaded directly from the OpenRailwayMap
+tile servers and are not redistributed by this project. Derivative works
+that re-host or modify the tile imagery itself must comply with CC BY-SA 2.0.
+
+--------------------------------------------------------------------------------
+OpenStreetMap (Map Data)
 https://www.openstreetmap.org/copyright
-Data License: Open Database License (ODbL)
+License: Open Database License (ODbL)
 https://opendatacommons.org/licenses/odbl/1-0/
 --------------------------------------------------------------------------------
 
 Map data © OpenStreetMap contributors, licensed under the Open Database
-License (ODbL). You are free to copy, distribute, transmit and adapt the
-data, as long as you credit OpenStreetMap and its contributors.
+License (ODbL). Visible attribution "© OpenStreetMap contributors" is shown
+in the map UI via Leaflet's tile layer attribution control.
 
 Tile usage follows the OpenStreetMap Tile Usage Policy:
 https://operations.osmfoundation.org/policies/tiles/
 
-This project provides visible attribution "© OpenStreetMap contributors"
-through Leaflet's tile layer attribution control, as required by the policy.
+--------------------------------------------------------------------------------
+国土数値情報 鉄道時系列データ (N02) / National Land Numerical Information
+https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02.html
+License: 政府標準利用規約 (第2.0版) / Government of Japan Standard Terms of Use 2.0
+https://www.digital.go.jp/resources/data_policy
+--------------------------------------------------------------------------------
 
+This product includes data derived from "国土数値情報（鉄道時系列データ）"
+provided by 国土交通省 (Ministry of Land, Infrastructure, Transport and
+Tourism, Japan).
+
+出典: 「国土数値情報（鉄道時系列データ）」(国土交通省) を加工して作成
+Source: "National Land Numerical Information (Railway Time Series Data)"
+        (MLIT, Japan), processed by the project owner.
+
+加工内容 (Processing applied):
+- rail_lines.json: N02 railway segment data filtered to the Kansai 6-prefecture
+  area (大阪府/兵庫県/京都府/奈良県/滋賀県/和歌山県), aggregated by operator
+  and line name. JR West Tokaido Line is split into three logical sections
+  by longitude thresholds: (米原〜京都), (京都〜大阪), (大阪〜姫路).
+- rail_stations.json: N02 station data filtered to the same area, with the
+  same regional labelling applied to Tokaido Line stations.
+
+The processed JSON files are distributed in this repository for convenience
+and remain subject to the Government of Japan Standard Terms of Use 2.0.
+
+--------------------------------------------------------------------------------
 Noto Sans JP (Google Fonts)
 https://fonts.google.com/noto/specimen/Noto+Sans+JP
 License: SIL Open Font License, Version 1.1
 https://scripts.sil.org/OFL
 --------------------------------------------------------------------------------
 
-Loaded via Google Fonts. Free for commercial and personal use.
+Loaded via Google Fonts. Free for commercial and personal use under SIL OFL 1.1.
