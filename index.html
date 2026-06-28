@@ -1317,7 +1317,7 @@ var tilePale = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y
   minZoom: 5
 });
 var tileSimple = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
   maxZoom: 19,
   minZoom: 5,
   subdomains: "abcd"
@@ -1327,7 +1327,7 @@ tilePale.addTo(map);
 // 鉄道路線オーバーレイ（JR・私鉄を赤系で強調）
 // 出典: https://www.openrailwaymap.org/ (ODbL)
 var railwayLayer = L.tileLayer("https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png", {
-  attribution: '<a href="https://www.openrailwaymap.org/" target="_blank" rel="noopener">OpenRailwayMap</a>',
+  attribution: 'Railway tiles &copy; <a href="https://www.openrailwaymap.org/" target="_blank" rel="noopener">OpenRailwayMap</a> contributors (<a href="https://creativecommons.org/licenses/by-sa/2.0/" target="_blank" rel="noopener">CC BY-SA 2.0</a>) | data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>',
   maxZoom: 19,
   minZoom: 5,
   opacity: 0.95,

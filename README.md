@@ -27,14 +27,29 @@
 
 - 純粋な HTML / CSS / JavaScript（ビルド不要・単一ファイル）
 - [Leaflet 1.9.4](https://leafletjs.com/) — 地図ライブラリ
-- [OpenStreetMap](https://www.openstreetmap.org/) — 地図タイル
 - [Noto Sans JP](https://fonts.google.com/noto/specimen/Noto+Sans+JP) — 日本語フォント
+
+## 地図タイル・データの出典
+
+このアプリは以下の第三者提供のタイル・データを利用しています。各規約に従って配信しており、地図UI下部に attribution を常時表示しています。
+
+| 種別 | 提供元 | 規約 |
+|---|---|---|
+| 淡色地図タイル | [地理院タイル](https://maps.gsi.go.jp/development/ichiran.html) | [国土地理院コンテンツ利用規約](https://www.gsi.go.jp/kikakuchousei/kikakuchousei40182.html) |
+| シンプル地図タイル | [CartoDB Positron](https://carto.com/attributions) | CC BY 3.0 + ODbL |
+| 鉄道路線オーバーレイ | [OpenRailwayMap](https://www.openrailwaymap.org/) | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) |
+| 地図データ（OSM 由来） | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
+| 鉄道路線・駅データ（加工） | [国土数値情報 鉄道時系列データ N02](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02.html)（国土交通省） | [政府標準利用規約 2.0](https://www.digital.go.jp/resources/data_policy) |
+
+出典：「国土数値情報（鉄道時系列データ）」（国土交通省）を加工して作成。加工内容（関西エリア絞り込み・JR西日本東海道線の3区間分割など）は [LICENSE](LICENSE) を参照してください。
 
 ## ライセンス
 
-[MIT License](LICENSE) © 2026
+- **アプリ本体のソースコード（`index.html`）**: [MIT License](LICENSE)
+- **同梱データ（`rail_lines.json` / `rail_stations.json`）**: 政府標準利用規約 2.0（国土数値情報の加工データ）
+- **地図タイル・フォント等の第三者依存**: それぞれの規約に従う
 
-サードパーティの依存先ライセンス（Leaflet BSD-2-Clause、OpenStreetMap ODbL、Noto Sans JP OFL）の詳細は [LICENSE](LICENSE) ファイルを参照。
+詳細は [LICENSE](LICENSE) を参照してください。
 
 ## 注意事項
 
