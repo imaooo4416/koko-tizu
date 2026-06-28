@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+._*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code local config
+.claude/
+
+# Python tooling (used during data prep)
+.ruff_cache/
+__pycache__/
+*.pyc
+
+# Node (in case of future tooling)
+node_modules/
+package-lock.json
+yarn.lock
+bun.lockb
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.bak
+
+# Local preview / working artifacts (not part of the app)
+school_map_preview.html
+.Rhistory

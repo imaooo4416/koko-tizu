@@ -1,0 +1,2407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>関西6府県 高等学校 所在地マップ</title>
+<meta name="description" content="大阪府・兵庫県・京都府・奈良県・滋賀県・和歌山県の公立高校・私立高校の所在地を地図上にプロットしたインタラクティブマップ。">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+/* ===== Soft Pop Design System ===== */
+:root{
+  --bg:#FDFBF8;
+  --bg-soft:#FFF7F0;
+  --surface:#ffffff;
+  --surface-2:#FBF4ED;
+  --ink:#3D2E2E;
+  --ink-soft:#7A6868;
+  --ink-faint:#B5A8A8;
+  --border:#F0E3DA;
+  --border-soft:#F7ECE4;
+  --accent:#FF8B7B;
+  --accent-soft:#FFE4DF;
+  --accent-deep:#E5715F;
+  --mint:#7DD8C0;
+  --mint-soft:#DFF6EE;
+  --shadow-sm:0 2px 6px rgba(216,158,140,.10);
+  --shadow:0 6px 18px rgba(216,158,140,.14);
+  --shadow-lg:0 16px 36px rgba(216,158,140,.20);
+  --r-xs:8px; --r-sm:12px; --r:16px; --r-lg:22px; --r-xl:28px; --r-pill:999px;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;background:var(--bg);background-image:radial-gradient(ellipse at top left,#FFEEE8 0%,transparent 40%),radial-gradient(ellipse at bottom right,#E8F6F0 0%,transparent 45%)}
+
+/* Layout */
+#app{display:flex;height:100vh;width:100vw}
+
+/* Sidebar */
+#sidebar{width:340px;min-width:340px;height:100vh;background:var(--surface);display:flex;flex-direction:column;border-right:1px solid var(--border-soft);z-index:10;position:relative;box-shadow:var(--shadow-sm)}
+#sidebar-header{padding:18px 20px 14px;flex-shrink:0}
+#sidebar-header h1{font-size:18px;font-weight:900;letter-spacing:0.01em;color:var(--ink);line-height:1.35}
+#sidebar-header .count{font-size:12px;color:var(--ink-soft);margin-top:4px;font-weight:600}
+
+/* Filters */
+#filters{padding:8px 20px 14px;flex-shrink:0}
+.filter-group{margin-bottom:10px}
+.filter-group b{font-size:10.5px;color:var(--ink-faint);letter-spacing:0.06em;display:block;margin-bottom:6px;font-weight:700;text-transform:uppercase}
+.filter-row{display:flex;flex-wrap:wrap;gap:6px}
+.filter-button{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--r);background:var(--surface-2);font-size:13px;font-family:'Noto Sans JP',sans-serif;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;transition:all .2s var(--ease);font-weight:600}
+.filter-button:hover,.filter-button:focus{border-color:var(--accent);background:var(--accent-soft);outline:none;transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.filter-button .summary{font-size:11.5px;color:var(--ink-soft);white-space:nowrap;font-weight:500}
+.cb{display:inline-flex;align-items:center;cursor:pointer;user-select:none;font-size:12.5px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-2);border:1.5px solid var(--border);transition:all .2s var(--ease);font-weight:700;color:var(--ink-faint)}
+.cb:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.cb input{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+/* ドットは使わない（背景色そのもので状態を示す） */
+.cb .dt{display:none}
+/* ON状態: 府県色で塗りつぶし＋白文字 */
+.cb:has(input[data-p="0"]:checked){background:#5BA4E6;color:#fff;border-color:#5BA4E6}
+.cb:has(input[data-p="1"]:checked){background:#6FC9A7;color:#fff;border-color:#6FC9A7}
+.cb:has(input[data-p="2"]:checked){background:#A893E0;color:#fff;border-color:#A893E0}
+.cb:has(input[data-p="3"]:checked){background:#F4A66E;color:#fff;border-color:#F4A66E}
+.cb:has(input[data-p="4"]:checked){background:#F08585;color:#fff;border-color:#F08585}
+.cb:has(input[data-p="5"]:checked){background:#5DC5D6;color:#fff;border-color:#5DC5D6}
+/* 種別・別学のON: コーラルで塗りつぶし＋白文字（府県と同じ挙動） */
+.cb:has(input[data-t]:checked),.cb:has(input[data-g]:checked){background:var(--accent);color:#fff;border-color:var(--accent)}
+/* 沿線モードトグル */
+.cb:has(#alongRailToggle:checked){background:var(--mint);color:#fff;border-color:var(--mint)}
+
+/* Search box */
+#search-wrap{position:relative;margin-bottom:10px}
+#searchInput{width:100%;padding:11px 34px 11px 34px;border:1.5px solid var(--border);border-radius:var(--r-pill);font-size:13px;outline:none;font-family:'Noto Sans JP',sans-serif;background:var(--surface-2);transition:all .2s var(--ease);font-weight:500;color:var(--ink)}
+#searchInput::placeholder{color:var(--ink-faint)}
+#searchInput:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px var(--accent-soft)}
+#search-wrap::before{content:"\1F50D";position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;opacity:.5}
+#searchClear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.05);border:none;width:22px;height:22px;border-radius:50%;font-size:14px;color:var(--ink-soft);cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;font-family:inherit}
+#searchClear:hover{background:var(--accent-soft);color:var(--accent-deep)}
+#searchClear.show{display:flex}
+
+/* School list */
+#school-list{flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 0}
+#school-list::-webkit-scrollbar{width:6px}
+#school-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+#school-list::-webkit-scrollbar-thumb:hover{background:var(--accent-soft)}
+.pref-section{margin:0 12px 8px;border-radius:var(--r);overflow:hidden}
+.pref-header{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;user-select:none;transition:all .18s var(--ease);background:var(--surface-2);border-radius:var(--r)}
+.pref-header:hover{background:#fff;box-shadow:var(--shadow-sm)}
+.pref-header .pref-name{font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px;color:var(--ink)}
+.pref-header .pref-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px rgba(255,255,255,.6) inset}
+.pref-header .pref-count{font-size:11px;color:var(--ink-soft);font-weight:700;padding:3px 9px;background:rgba(255,255,255,.7);border-radius:var(--r-pill)}
+.pref-header .arrow{font-size:11px;color:var(--ink-faint);transition:transform .25s var(--ease)}
+.pref-header.collapsed .arrow{transform:rotate(-90deg)}
+.pref-body{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:6px 4px 6px}
+.pref-body.hidden{display:none}
+.school-item{font-size:13.5px;padding:8px 11px;border-radius:var(--r-sm);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:all .15s var(--ease);line-height:1.4;color:var(--ink);font-weight:500}
+.school-item:hover{background:var(--accent-soft);transform:translateX(2px);color:var(--ink)}
+.school-item.highlighted{background:var(--accent-soft);box-shadow:var(--shadow-sm)}
+.school-item .type-dot{margin-right:3px;font-size:11px}
+
+/* Map */
+#map-wrap{flex:1;position:relative;display:flex;flex-direction:column}
+#map{width:100%;flex:1;min-height:0;background:#F5EFE8}
+
+/* Leaflet marker drop shadow */
+.leaflet-overlay-pane svg path{filter:drop-shadow(0 1.5px 2.5px rgba(61,46,46,.30))}
+
+/* 選択高校の波紋 */
+.ripple-icon{background:transparent!important;border:none!important;pointer-events:none;position:relative}
+.ripple-icon .ripple{position:absolute;top:50%;left:50%;width:14px;height:14px;border-radius:50%;border:2.5px solid var(--accent);transform:translate(-50%,-50%);opacity:0;animation:rippleExpand 2.2s var(--ease) infinite;box-shadow:0 0 8px rgba(255,139,123,.35)}
+.ripple-icon .ripple.r2{animation-delay:1.1s}
+.ripple-icon .ripple-core{position:absolute;top:50%;left:50%;width:12px;height:12px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%);box-shadow:0 0 12px rgba(255,139,123,.7),0 2px 6px rgba(61,46,46,.3);animation:rippleCore 1.6s ease-in-out infinite}
+@keyframes rippleExpand{
+  0%{transform:translate(-50%,-50%) scale(.5);opacity:1;border-width:3px}
+  100%{transform:translate(-50%,-50%) scale(4.5);opacity:0;border-width:1px}
+}
+@keyframes rippleCore{
+  0%,100%{transform:translate(-50%,-50%) scale(1)}
+  50%{transform:translate(-50%,-50%) scale(1.25)}
+}
+
+/* 鉄道タイル(OpenRailwayMap)の視認性UP: コントラスト+彩度を下げて青系をオレンジ寄りに */
+.railway-tile{filter:saturate(1.2) contrast(1.1) hue-rotate(-20deg) drop-shadow(0 0 1px rgba(255,255,255,.5))}
+
+/* Soft Pop tile layer switcher */
+.leaflet-control-layers{background:rgba(255,255,255,.95)!important;backdrop-filter:blur(8px);border:1.5px solid var(--border)!important;border-radius:var(--r-pill)!important;box-shadow:var(--shadow)!important;padding:4px 6px!important;font-family:'Noto Sans JP',sans-serif!important}
+.leaflet-control-layers-expanded{padding:6px 10px!important}
+.leaflet-control-layers label{display:inline-flex!important;align-items:center;gap:5px;margin:0 4px!important;padding:5px 12px!important;border-radius:var(--r-pill);font-size:12px;font-weight:700;color:var(--ink-faint);cursor:pointer;transition:all .2s var(--ease);background:var(--surface-2)}
+.leaflet-control-layers label:hover{transform:translateY(-1px)}
+.leaflet-control-layers label:has(input:checked){background:var(--accent);color:#fff}
+.leaflet-control-layers input{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+.leaflet-control-layers-base{display:flex;gap:2px}
+.leaflet-control-layers-overlays{display:flex;gap:2px;margin-top:4px;padding-top:6px;border-top:1px dashed var(--border)}
+.leaflet-control-layers-separator{display:none!important}
+
+/* Leaflet tooltip label overrides */
+.school-label{background:none!important;border:none!important;box-shadow:none!important;padding:0!important;font-family:'Noto Sans JP','Hiragino Sans',sans-serif;font-weight:800;font-size:13px;text-shadow:-1.5px -1.5px 0 #fff,1.5px -1.5px 0 #fff,-1.5px 1.5px 0 #fff,1.5px 1.5px 0 #fff,0 0 4px #fff,0 0 6px #fff,0 0 6px #fff;color:var(--ink);letter-spacing:.02em}
+.school-label::before{display:none!important}
+.leaflet-tooltip.school-label{white-space:nowrap}
+#map.labels-hidden .school-label{display:none!important}
+
+/* Footer bar */
+#footer-bar{flex-shrink:0;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);padding:8px 16px;font-size:10.5px;color:var(--ink-soft);line-height:1.55;border-top:1px solid var(--border-soft)}
+#footer-bar a{color:var(--accent-deep);text-decoration:none;font-weight:600}
+#footer-bar a:hover{text-decoration:underline}
+
+/* Mobile toggle */
+#mobile-toggle{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:20;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:var(--r-pill);padding:11px 24px;font-size:13px;font-weight:800;box-shadow:0 6px 18px rgba(255,139,123,.45);cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:transform .2s var(--ease)}
+#mobile-toggle:active{transform:translateX(-50%) scale(.96)}
+
+/* Panel */
+#panel{position:fixed;top:0;right:-440px;width:420px;max-width:100vw;height:100vh;background:var(--surface);box-shadow:var(--shadow-lg);z-index:1000;transition:right .5s var(--ease-spring);overflow-y:auto;display:flex;flex-direction:column;border-left:1px solid var(--border-soft)}
+#panel.open{right:0}
+#panel::-webkit-scrollbar{width:6px}
+#panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+#overlay{display:none;position:fixed;inset:0;background:rgba(61,46,46,.32);backdrop-filter:blur(2px);z-index:999;animation:fadeIn .3s var(--ease)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#overlay.open{display:block}
+.ph{padding:22px 24px 16px;position:relative;background:linear-gradient(180deg,var(--accent-soft) 0%,transparent 100%)}
+.ph h2{font-size:19px;padding-right:36px;font-weight:900;color:var(--ink);line-height:1.35}
+.ph .meta{font-size:12px;color:var(--ink-soft);margin-top:6px;font-weight:600}
+#pc{position:absolute;top:16px;right:18px;background:rgba(255,255,255,.7);border:1px solid var(--border);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;color:var(--ink-soft);line-height:1;display:flex;align-items:center;justify-content:center;transition:all .18s var(--ease)}
+#pc:hover{background:#fff;color:var(--accent-deep);transform:rotate(90deg)}
+.ps{padding:16px 22px;border-bottom:1px solid var(--border-soft)}
+.ps:last-child{border-bottom:none}
+.ps h3{font-size:11px;font-weight:800;margin-bottom:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:0.08em}
+.acc-item{font-size:13px;line-height:1.75;color:var(--ink-soft)}
+.acc-item b{color:var(--ink);font-weight:700;margin-right:6px}
+.acc-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.acc-link{font-size:12px;color:var(--accent-deep);text-decoration:none;display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:var(--accent-soft);border:1.5px solid transparent;border-radius:var(--r-pill);transition:all .2s var(--ease);font-weight:700}
+.acc-link:hover{background:#fff;border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.acc-link.gmap{color:#0F8C58;background:var(--mint-soft)}
+.acc-link.gmap:hover{border-color:var(--mint);background:#fff}
+
+/* City filter modal */
+.city-modal-overlay{display:none;position:fixed;inset:0;z-index:2400;background:rgba(61,46,46,.40);backdrop-filter:blur(4px);padding:24px;align-items:center;justify-content:center;animation:fadeIn .3s var(--ease)}
+.city-modal-overlay.open{display:flex}
+.city-modal{width:min(940px,100%);max-height:min(760px,calc(100vh - 48px));background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden;animation:popIn .35s var(--ease-spring)}
+@keyframes popIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.city-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border-soft);flex-shrink:0;background:linear-gradient(180deg,var(--accent-soft) 0%,transparent 100%)}
+.city-modal-head h2{font-size:16px;font-weight:900;color:var(--ink)}
+.city-modal-actions{display:flex;align-items:center;gap:8px}
+.city-action-btn{padding:8px 14px;border:1.5px solid transparent;border-radius:var(--r-pill);background:var(--accent-soft);color:var(--accent-deep);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .18s var(--ease)}
+.city-action-btn:hover{background:#fff;border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+#cityModalClose,#railModalClose{width:32px;height:32px;border:1.5px solid var(--border);background:rgba(255,255,255,.85);color:var(--ink-soft);font-size:18px;line-height:1;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .2s var(--ease);flex-shrink:0;padding:0;font-family:inherit}
+#cityModalClose:hover,#railModalClose:hover{color:var(--accent-deep);transform:rotate(90deg);background:#fff;border-color:var(--accent)}
+.city-zone-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;min-height:0;overflow:hidden;flex:1}
+.city-zone{min-height:0;border:1.5px solid var(--border);border-radius:var(--r);background:var(--surface-2);display:flex;flex-direction:column;transition:all .2s var(--ease)}
+.city-zone.drag-over{border-color:var(--accent);background:var(--accent-soft);box-shadow:var(--shadow)}
+.city-zone-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border-soft)}
+.city-zone-head h3{font-size:13px;font-weight:800;color:var(--ink)}
+.city-zone-count{font-size:11px;color:var(--ink-soft);font-weight:700;background:rgba(255,255,255,.8);padding:2px 9px;border-radius:var(--r-pill)}
+.city-card-list{padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px;overflow-y:auto;align-content:start;min-height:0;flex:1}
+.city-card{min-height:56px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:#fff;padding:9px 10px;display:grid;grid-template-columns:1fr auto;gap:3px 6px;align-items:center;cursor:grab;user-select:none;box-shadow:var(--shadow-sm);transition:transform .15s var(--ease),box-shadow .15s var(--ease)}
+.city-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.city-card:active{cursor:grabbing}
+.city-card.dragging{opacity:.55}
+.city-card.hidden-card{background:var(--accent-soft);border-color:var(--accent)}
+.city-card-title{display:flex;align-items:center;gap:5px;min-width:0}
+.city-card-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.city-card-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.city-card-meta{font-size:11px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.city-card-move{grid-column:2;grid-row:1 / span 2;width:28px;height:28px;border:1.5px solid var(--border);border-radius:50%;background:var(--surface-2);color:var(--ink-soft);cursor:pointer;font-size:16px;line-height:1;font-family:'Noto Sans JP',sans-serif;transition:all .15s var(--ease)}
+.city-card-move:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
+.city-empty{display:flex;align-items:center;justify-content:center;min-height:84px;border:1.5px dashed var(--border);border-radius:var(--r-sm);color:var(--ink-faint);font-size:13px;background:rgba(255,255,255,.5)}
+
+@media(max-width:767px){
+  #app{flex-direction:column;height:100vh;height:100dvh}
+  /* Map fills the space above the list (no longer forced to 100vh) */
+  #map-wrap{order:1;flex:1 1 auto;min-height:0;height:auto;width:100%}
+  /* School list as a bottom panel that shares the screen with the map */
+  #sidebar{width:100%;min-width:0;height:50vh;max-height:50vh;border-right:none;border-top:1px solid #ddd;order:2;flex-shrink:0;box-shadow:0 -2px 10px rgba(0,0,0,0.08);transition:max-height .3s ease}
+  #sidebar.collapsed{max-height:0;overflow:hidden;border-top:none}
+  /* Compact header/filters so more room is left for the list */
+  #sidebar-header{padding:8px 14px 6px}
+  #sidebar-header h1{font-size:14px;line-height:1.3}
+  #sidebar-header .count{font-size:11px;margin-top:1px}
+  #filters{padding:8px 14px}
+  .filter-group{margin-bottom:5px}
+  #search-wrap{margin-bottom:6px}
+  /* Keep last items clear of the floating toggle button */
+  #school-list{padding-bottom:54px}
+  .school-item{font-size:13px;padding:7px 6px}
+  .pref-header{padding:9px 14px}
+  #mobile-toggle{display:block}
+  #panel{width:100vw;right:-100vw}
+  #footer-bar{display:none}
+  .city-modal-overlay{padding:10px}
+  .city-modal{max-height:calc(100vh - 20px)}
+  .city-modal-head{align-items:flex-start}
+  .city-modal-actions{flex-wrap:wrap;justify-content:flex-end}
+  .city-zone-grid{grid-template-columns:1fr;overflow-y:auto}
+  .city-card-list{max-height:none;min-height:180px;overflow:visible}
+}
+
+/* PDF / print button (screen) */
+#pdfBtn{width:100%;margin-top:12px;padding:11px 16px;border:none;border-radius:var(--r-pill);background:linear-gradient(135deg,var(--accent) 0%,var(--accent-deep) 100%);color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .2s var(--ease);display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 14px rgba(255,139,123,.35);letter-spacing:0.02em}
+#pdfBtn:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(255,139,123,.45)}
+#pdfBtn:active{transform:translateY(0)}
+#pdfBtn:disabled{opacity:.6;cursor:wait;transform:none}
+
+/* ===== Printable "SCHOOL MAP" pages (A4 landscape: list left + map right) ===== */
+/* Fixed pixel sizes so the Leaflet map renders identically on screen and on
+   paper (avoids tile misalignment). A4 landscape content ≈ 1047x718px @96dpi. */
+#print-area{display:none}
+#print-area.show{display:block;position:fixed;inset:0;background:#eef1f5;z-index:3000;overflow:auto;padding:18px}
+#paClose{position:fixed;top:14px;right:18px;z-index:3100;background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:#fff;border:none;border-radius:var(--r-pill);padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif;box-shadow:0 6px 18px rgba(255,139,123,.40);transition:transform .2s var(--ease)}
+#paClose:hover{transform:translateY(-1px)}
+.pa-page{width:1047px;margin:0 auto 22px;background:#fff;padding:14px 16px;border-radius:6px;color:#222;display:flex;flex-direction:column}
+.pa-head{display:flex;align-items:center;gap:10px;border-bottom:3px solid #333;padding-bottom:5px;margin-bottom:8px;flex-shrink:0}
+.pa-title{font-size:20px;font-weight:900;letter-spacing:.02em}
+.pa-rgn{font-size:15px;font-weight:700;color:#555;margin-left:4px}
+.pa-sub{font-size:12px;font-weight:700;color:#fff;padding:2px 8px;border-radius:10px}
+.pa-leg{display:flex;gap:12px;align-items:center;font-size:11px;color:#444;margin-left:6px}
+.pa-leg i{display:inline-block;width:13px;height:13px;border-radius:50%;margin-right:3px;vertical-align:-2px}
+.pa-meta{font-size:10px;color:#666;margin-left:auto}
+.pa-body{display:flex;gap:14px;flex:1}
+.pa-left{width:432px;flex-shrink:0;column-count:2;column-gap:12px}
+.pa-map{width:575px;height:662px;flex-shrink:0;border:1px solid #ccc;border-radius:6px;overflow:hidden}
+.pa-city{break-inside:avoid;margin-bottom:7px}
+.pa-city h4{font-size:10.5px;font-weight:700;color:#333;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:2px}
+.pa-item{display:flex;align-items:center;gap:4px;font-size:10px;line-height:1.45;padding:.5px 0}
+.pa-badge{flex-shrink:0;width:16px;height:16px;border-radius:50%;font-size:8.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:1.4px solid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pa-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* numbered map markers (公立=塗り / 私立=白抜き) */
+.pa-mk{background:transparent;border:none}
+.pa-mk span{display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:700;box-shadow:0 0 2px rgba(0,0,0,.5);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@media print{
+  @page{size:A4 landscape;margin:9mm}
+  html,body{height:auto;overflow:visible;background:#fff}
+  #app,#panel,#overlay,#mobile-toggle,#paClose{display:none!important}
+  #print-area{display:block!important}
+  #print-area.show{position:static;padding:0;overflow:visible;background:#fff;z-index:auto}
+  .pa-page{break-after:page;page-break-after:always;margin:0;border-radius:0;padding:0}
+  .pa-page:last-child{break-after:auto;page-break-after:auto}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>関西6府県 高等学校 所在地マップ</h1>
+      <div class="count" id="cnt">329校</div>
+      <button id="pdfBtn" type="button">&#x1F5A8; 表示中の一覧をPDF保存</button>
+    </div>
+    <div id="filters">
+      <div id="search-wrap">
+        <input id="searchInput" type="text" placeholder="高校名で検索..." autocomplete="off">
+        <button id="searchClear" type="button" aria-label="クリア">&times;</button>
+      </div>
+      <div class="filter-group">
+        <b>府県</b>
+        <div class="filter-row">
+          <label class="cb"><input type="checkbox" checked data-p="0"><span class="dt" style="background:#5BA4E6"></span>大阪</label>
+          <label class="cb"><input type="checkbox" checked data-p="1"><span class="dt" style="background:#6FC9A7"></span>兵庫</label>
+          <label class="cb"><input type="checkbox" checked data-p="2"><span class="dt" style="background:#A893E0"></span>京都</label>
+          <label class="cb"><input type="checkbox" checked data-p="3"><span class="dt" style="background:#F4A66E"></span>奈良</label>
+          <label class="cb"><input type="checkbox" checked data-p="4"><span class="dt" style="background:#F08585"></span>滋賀</label>
+          <label class="cb"><input type="checkbox" checked data-p="5"><span class="dt" style="background:#5DC5D6"></span>和歌山</label>
+        </div>
+      </div>
+      <div class="filter-group">
+        <b>市区町村</b>
+        <button id="cityFilterBtn" class="filter-button" type="button" aria-haspopup="dialog" aria-controls="cityModal">
+          <span>市区町村を選択</span>
+          <span class="summary" id="cityFilterSummary">すべて表示</span>
+        </button>
+      </div>
+      <div class="filter-group">
+        <b>種別</b>
+        <div class="filter-row">
+          <label class="cb"><input type="checkbox" checked data-t="0">&#9679; 公立</label>
+          <label class="cb"><input type="checkbox" checked data-t="1">&#9675; 私立</label>
+        </div>
+      </div>
+      <div class="filter-group">
+        <b>別学</b>
+        <div class="filter-row">
+          <label class="cb"><input type="checkbox" checked data-g="0">共学</label>
+          <label class="cb"><input type="checkbox" checked data-g="1">男子校</label>
+          <label class="cb"><input type="checkbox" checked data-g="2">女子校</label>
+        </div>
+      </div>
+      <div class="filter-group" style="margin-bottom:0">
+        <b>✨ 光らせる路線</b>
+        <button id="railFilterBtn" class="filter-button" type="button" aria-haspopup="dialog" aria-controls="railModal">
+          <span>路線を選択</span>
+          <span class="summary" id="railFilterSummary">未選択</span>
+        </button>
+        <label class="cb" id="alongRailToggleWrap" style="margin-top:8px;width:100%;justify-content:center;cursor:pointer;display:flex;align-items:center;gap:6px;padding:8px 12px">
+          <input type="checkbox" id="alongRailToggle" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
+          <span>📍 沿線(駅半径1.2km)の高校のみ</span>
+        </label>
+        <div id="alongRailHint" style="font-size:10.5px;color:var(--ink-soft);background:var(--surface-2);border:1px dashed var(--border);border-radius:var(--r-sm);padding:7px 10px;margin-top:6px;line-height:1.55;display:none">
+          <b style="color:var(--ink)">1.2km の根拠</b><br>
+          徒歩1分=80m × 15分 = 1.2km<br>
+          (不動産公正取引協議会連合会「不動産の表示に関する公正競争規約」第15条の徒歩所要時間基準)
+        </div>
+      </div>
+    </div>
+    <div id="school-list"></div>
+  </div>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="footer-bar">
+      <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a> (BSD-2-Clause) |
+      タイル: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a> |
+      MIT License &copy; 2026 — <a href="https://github.com/imaooo4416/koko-tizu" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</div>
+
+<button id="mobile-toggle">&#x2715; 一覧を閉じる</button>
+
+<!-- School detail panel -->
+<div id="overlay"></div>
+<div id="panel">
+  <div class="ph">
+    <button id="pc">&times;</button>
+    <h2 id="pName"></h2>
+    <div class="meta" id="pMeta"></div>
+  </div>
+  <div class="ps" id="accSec">
+    <h3>アクセス情報</h3>
+    <div id="accBody"></div>
+  </div>
+  <div class="ps" id="alongSec" style="display:none">
+    <h3>🚉 沿線情報 (最寄駅から1.2km以内)</h3>
+    <div id="alongBody"></div>
+  </div>
+</div>
+
+<div id="cityModalOverlay" class="city-modal-overlay">
+  <div id="cityModal" class="city-modal" role="dialog" aria-modal="true" aria-labelledby="cityModalTitle">
+    <div class="city-modal-head">
+      <h2 id="cityModalTitle">市区町村フィルター</h2>
+      <div class="city-modal-actions">
+        <button id="cityShowAllBtn" class="city-action-btn" type="button">すべて表示</button>
+        <button id="cityHideAllBtn" class="city-action-btn" type="button">すべて非表示</button>
+        <button id="cityModalClose" type="button" aria-label="閉じる">&times;</button>
+      </div>
+    </div>
+    <div id="cityChipsBody" style="padding:14px 18px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px"></div>
+  </div>
+</div>
+
+<!-- 路線選択モーダル -->
+<div id="railModalOverlay" class="city-modal-overlay">
+  <div id="railModal" class="city-modal" role="dialog" aria-modal="true" aria-labelledby="railModalTitle">
+    <div class="city-modal-head">
+      <h2 id="railModalTitle">✨ 光らせる路線を選択</h2>
+      <div class="city-modal-actions">
+        <button id="railClearBtn" class="city-action-btn" type="button">クリア</button>
+        <input id="railSearchInput" type="text" placeholder="路線名で検索…" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--r-pill);font-size:12px;font-family:'Noto Sans JP',sans-serif;background:var(--surface-2);color:var(--ink);outline:none;width:180px">
+        <button id="railModalClose" type="button" aria-label="閉じる">&times;</button>
+      </div>
+    </div>
+    <div id="railModalBody" style="padding:14px 18px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px"></div>
+  </div>
+</div>
+
+<!-- 鉄道粒子描画用Canvas -->
+<canvas id="rail-flow-canvas" style="position:absolute;inset:0;pointer-events:none;z-index:450"></canvas>
+
+<!-- Printable list (populated on demand for PDF / print) -->
+<div id="print-area"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+"use strict";
+var PN=["大阪府","兵庫県","京都府","奈良県","滋賀県","和歌山県"];
+var PC=["#5BA4E6","#6FC9A7","#A893E0","#F4A66E","#F08585","#5DC5D6"];
+var PC_DARK=["#2D6FB8","#3FA180","#7C5DC2","#D67F3F","#C45A5A","#2E97A8"];
+
+var G=[
+[34.705,135.536],[34.724,135.491],[34.691,135.475],[34.682,135.455],[34.659,135.458],
+[34.643,135.474],[34.653,135.520],[34.678,135.513],[34.634,135.519],[34.617,135.561],
+[34.652,135.547],[34.614,135.510],[34.744,135.536],[34.672,135.485],[34.573,135.483],
+[34.540,135.525],[34.557,135.460],[34.510,135.483],[34.580,135.510],[34.460,135.373],
+[34.781,135.470],[34.822,135.427],[34.761,135.518],[34.847,135.617],[34.816,135.569],
+[34.627,135.601],[34.680,135.601],[34.809,135.649],[34.766,135.628],[34.740,135.562],
+[34.738,135.592],[34.714,135.623],[34.739,135.639],[34.782,135.680],[34.578,135.551],
+[34.558,135.605],[34.575,135.593],[34.499,135.595],[34.463,135.566],[34.505,135.558],
+[34.836,135.471],[34.774,135.563],[34.502,135.407],[34.486,135.427],[34.521,135.442],
+[34.445,135.358],[34.405,135.327],[34.365,135.274],[34.348,135.245],[34.584,135.630],
+[34.604,135.486],
+[34.720,135.272],[34.717,135.245],[34.690,135.196],[34.672,135.162],[34.658,135.152],
+[34.651,135.130],[34.636,135.059],[34.752,135.152],[34.690,135.020],[34.733,135.401],
+[34.738,135.342],[34.727,135.304],[34.799,135.356],[34.784,135.402],[34.828,135.418],
+[34.889,135.227],[34.643,134.997],[34.756,134.840],[34.740,134.791],[34.795,134.989],
+[34.993,134.970],[34.815,134.685],[34.857,134.546],[34.806,134.468],[34.756,134.392],
+[35.544,134.819],[35.077,135.220],[35.177,135.046],[34.341,134.894],[34.440,134.917],
+[35.404,134.770],[35.339,134.855],
+[35.045,135.750],[35.031,135.757],[35.043,135.779],[35.012,135.759],[34.999,135.775],
+[34.992,135.759],[34.972,135.744],[35.015,135.711],[34.935,135.762],[34.987,135.695],
+[34.985,135.809],[34.884,135.800],[34.852,135.781],[34.876,135.709],[34.814,135.768],
+[34.740,135.853],[34.883,135.721],[34.948,135.700],[34.928,135.695],[35.013,135.570],
+[35.106,135.467],[35.174,135.413],[35.297,135.254],[35.297,135.129],[35.474,135.386],
+[35.532,135.195],[35.625,135.062],[35.512,135.112],[34.756,135.792],
+[34.685,135.805],[34.515,135.736],[34.649,135.783],[34.597,135.838],[34.509,135.793],
+[34.514,135.843],[34.350,135.694],[34.457,135.736],[34.692,135.701],[34.540,135.695],
+[34.524,135.950],[34.594,135.710],[34.550,135.750],[34.613,135.729],[34.553,135.798],
+[34.457,135.790],[34.389,135.841],[33.952,135.708],[34.389,135.790],
+[34.986,135.869],[35.276,136.252],[35.381,136.270],[35.128,136.098],[35.015,135.961],
+[35.059,136.024],[34.992,136.000],[34.966,136.167],[35.068,136.034],[34.981,136.085],
+[35.350,136.035],[35.111,136.200],[35.315,136.289],[35.007,136.248],[35.102,136.212],
+[34.65631,135.52436],[34.65031,135.49650],[34.70997,135.45892],[34.72919,135.51036],[34.73981,135.53683],
+[34.65097,135.55917],[34.64692,135.53050],[34.71835,135.54203],[34.73725,135.55992],[34.68183,135.56114],
+[34.63575,135.51478],[34.63756,135.51900],[34.59539,135.51731],[34.65031,135.49650],[34.64719,135.48228],
+[34.73597,135.49656],[34.72542,135.46214],[34.69244,135.57006],[34.70986,135.56647],[34.61347,135.44267],
+[34.60422,135.48028],[34.62739,135.42789],[34.61331,135.54422],[34.59953,135.56619],[34.69928,135.51756],
+[34.56397,135.49658],[34.53525,135.51253],[34.52392,135.46911],[34.50486,135.48019],[34.49508,135.48453],
+[34.49931,135.53403],[34.46333,135.48739],[34.46178,135.39811],[34.46017,135.38975],[34.78217,135.47219],
+[34.81681,135.48700],[34.79750,135.45333],[34.80378,135.48781],[34.82764,135.44794],[34.80978,135.43425],
+[34.82869,135.50625],[34.80347,135.54697],[34.80194,135.52869],[34.86244,135.60081],[34.84867,135.58625],
+[34.81983,135.62956],[34.86475,135.62508],[34.42197,135.36772],[34.74139,135.56264],[34.79547,135.64025],
+[34.83803,135.70253],[34.81217,135.70389],[34.82461,135.64764],[34.79669,135.63308],[34.81206,135.55000],
+[34.80089,135.58489],[34.82528,135.56439],[34.84572,135.55053],[34.60119,135.62808],[34.63494,135.61858],
+[34.64269,135.60414],[34.40618,135.32356],[34.39014,135.33847],[34.40634,135.31691],[34.50423,135.57386],
+[34.77405,135.65621],[34.77108,135.60191],[34.45955,135.56337],[34.56948,135.56670],[34.70871,135.64100],
+[34.71744,135.62993],[34.51232,135.43375],[34.49053,135.43300],[34.50401,135.43123],[34.84301,135.50566],
+[34.53971,135.62079],[34.72885,135.59114],[34.51869,135.42337],[34.58315,135.58321],[34.57312,135.60126],
+[34.65881,135.62349],[34.66165,135.58765],[34.64652,135.62775],[34.69890,135.59363],[34.65428,135.59242],
+[34.66947,135.63619],[34.67179,135.60098],[34.69469,135.65269],[34.36769,135.26500],[34.49564,135.55030],
+[34.97200,135.44783],[34.32272,135.17044],[34.64731,135.52119],[34.61828,135.55083],[34.82189,135.43919],
+[34.65283,135.52164],[34.66039,135.51231],[34.71019,135.44847],[34.75856,135.53614],[34.75932,135.53707],
+[34.65495,135.52842],[34.65739,135.55648],[34.65250,135.53026],[34.73124,135.54642],[34.71113,135.55846],
+[34.63864,135.50498],[34.63513,135.52097],[34.64240,135.52529],[34.62050,135.49846],[34.60771,135.49459],
+[34.59692,135.49937],[34.60789,135.53784],[34.72389,135.48355],[34.63947,135.40747],[34.70045,135.48390],
+[34.67841,135.52896],[34.67736,135.52716],[34.68426,135.49949],[34.68944,135.52068],[34.68457,135.46222],
+[34.58427,135.49741],[34.55270,135.46921],[34.58430,135.49744],[34.51338,135.51459],[34.52853,135.48572],
+[34.41957,135.43321],[34.79157,135.47123],[34.77522,135.48044],[34.81031,135.43792],[34.76942,135.50917],
+[34.77531,135.54108],[34.82694,135.51492],[34.84811,135.62767],[34.86961,135.66272],[34.88693,135.66101],
+[34.85497,135.62285],[34.72756,135.56578],[34.73756,135.57111],[34.81700,135.65850],[34.80473,135.67120],
+[34.84953,135.54136],[34.83947,135.57770],[34.84753,135.52981],[34.61347,135.62278],[34.47147,135.58983],
+[34.78104,135.63631],[34.77294,135.63597],[34.47081,135.56097],[34.57042,135.54490],[34.73137,135.64082],
+[34.70423,135.59698],[34.83431,135.46372],[34.83686,135.47917],[34.82975,135.50836],[34.55873,135.63734],
+[34.77735,135.54981],[34.53465,135.44611],[34.51743,135.42774],[34.56859,135.58916],[34.57096,135.59098],
+[34.66300,135.57819],[34.66650,135.58761],[34.65608,135.59694],[34.67614,135.58175],[34.51453,135.63797],
+[34.38083,135.35731],
+[34.71106,135.21028],[34.68419,135.27139],[34.70417,135.21300],[34.67711,135.15347],[34.71972,135.15311],
+[34.73900,135.16231],[34.73901,135.16233],[34.78942,135.21647],[34.65986,135.17292],[34.67528,135.15667],
+[34.67147,135.09292],[34.67981,135.04833],[34.67983,135.04835],[34.67094,135.03556],[34.68172,135.10661],
+[34.66781,135.10142],[34.72425,135.01000],[34.67828,135.08833],[34.72483,135.31839],[34.34908,134.88253],
+[34.28141,134.78123],[34.75602,135.40869],[34.72417,135.43372],[34.72680,135.38505],[34.72673,135.43404],
+[34.76516,135.38635],[34.75060,135.40202],[34.75218,135.43593],[34.75588,135.34335],[34.71384,135.36807],
+[34.72596,135.37151],[34.76094,135.31262],[34.76114,135.31282],[34.77964,135.31139],[34.71851,135.35007],
+[34.70406,135.36616],[34.79010,135.32473],[34.79153,135.32867],[34.84389,135.37389],[34.80330,135.38281],
+[34.78889,135.39444],[34.78222,135.41639],[34.88472,135.39833],[34.83778,135.41472],[34.90222,135.36194],
+[34.91091,135.16156],[34.91154,135.17564],[34.88583,135.23167],[35.08405,135.20300],[35.10806,135.30528],
+[35.17753,135.09745],[35.24631,135.00463],[34.67389,134.93667],[34.66333,135.00167],[34.68361,134.89944],
+[34.69139,134.91500],[34.66833,134.96528],[34.70672,134.91904],[34.76838,134.82811],[34.76926,134.85892],
+[34.76864,134.81904],[34.75376,134.87705],[34.79899,134.83238],[34.74994,134.79546],[34.77221,134.77764],
+[34.75668,134.88501],[34.70715,134.87200],[34.84494,134.93254],[34.84647,134.92683],[34.77937,135.00312],
+[34.77883,135.03382],[34.77957,135.00334],[34.87898,135.09784],[34.91591,134.98013],[34.91020,134.85055],
+[34.91442,134.85101],[34.97278,134.95917],[35.07611,134.91778],[34.86056,134.63581],[34.80286,134.61011],
+[34.80306,134.61035],[34.77411,134.59244],[34.66881,134.52917],[34.80942,134.76828],[34.93136,134.73517],
+[34.82556,134.65597],[34.84803,134.69803],[34.80178,134.66883],[34.85019,134.67767],[34.83806,134.66039],
+[34.79386,134.69836],[34.96286,134.75083],[34.96306,134.75107],[34.96225,134.68542],[35.05886,134.77333],
+[34.91536,134.54414],[34.80250,134.45422],[35.00972,134.53036],[35.11061,134.57897],[35.15725,134.44611],
+[34.81975,134.58544],[34.87153,134.35472],[34.81500,134.43700],[35.01008,134.35908],[35.54978,134.81842],
+[35.46875,134.77367],[35.62692,134.44603],[35.64100,134.61192],[35.46536,134.59886],[35.39694,134.74703],
+[35.15433,134.79011],[34.73206,135.25447],[34.75519,135.30961],[34.76656,135.34717],[34.77162,135.36163],
+[34.82532,135.39952],[34.74055,135.41360],[34.66848,135.13481],[34.66766,135.10481],[34.66660,135.21330],
+[34.65764,135.06233],[34.70560,135.19790],[34.64955,135.14067],[34.71200,135.20504],[34.67390,135.16290],
+[34.69447,135.18308],[34.69210,135.17760],[34.66830,135.15760],[34.95010,135.16000],[34.98952,134.77033],
+[34.91831,134.72837],[35.14204,134.75347],[34.34490,134.89510],[34.76025,135.31883],[34.76955,135.37193],
+[34.63030,135.04880],[34.79050,135.34450],[34.83620,134.69200],[34.73880,135.35400],[34.70900,135.21680],
+[34.65760,135.09789],[34.67000,135.15000],[34.72700,135.28950],[34.70950,135.21500],[34.65050,135.12350],
+[34.82850,134.69250],[34.72350,135.34700],[34.74750,135.42900],
+[34.98967,135.75536],[34.94727,135.76559],[35.02594,135.75525],[34.48390,135.78473],[35.10594,135.90181],[34.88956,136.00006],
+[34.70975,135.52603],[34.72700,135.52369],[34.69947,135.52864],[34.71567,135.47806],[34.69339,135.46956],
+[34.68028,135.46186],[34.67111,135.46539],[34.66747,135.46628],[34.65881,135.47081],[34.65472,135.46864],
+[34.67486,135.52481],[34.65908,135.52219],[34.66944,135.52472],[34.68722,135.51900],[34.68825,135.51633],
+[34.63978,135.52094],[34.62819,135.50322],[34.61778,135.54094],[34.57225,135.55358],[34.60203,135.52181],
+[34.57997,135.48006],[34.57358,135.48764],[34.56228,135.47714],[34.53717,135.55147],[34.51925,135.54003],
+[34.51786,135.45900],[34.49044,135.50139],[34.55392,135.52747],[34.45799,135.37161],[34.79525,135.46978],
+[34.82006,135.44847],[34.77778,135.52833],[34.79908,135.51464],[34.84700,135.59769],[34.84294,135.62094],
+[34.81386,135.57122],[34.81858,135.56050],[34.62359,135.59510],[34.81019,135.65453],[34.84667,135.67914],
+[34.76508,135.62606],[34.73549,135.63570],[34.72847,135.60947],[34.74542,135.56792],[34.78147,135.68833],
+[34.82069,135.47458],[34.78703,135.56017],[34.59064,135.56178],[34.49764,135.59833],[34.49964,135.59178],
+[34.45947,135.56358],[34.49561,135.55019],[34.49839,135.42253],[34.45300,135.38161],[34.44008,135.35808],
+[34.40618,135.32356],[34.57531,135.64669],[34.71732,135.63008],[34.66233,135.52075],[34.65436,135.51467],
+[34.66381,135.52172],[34.67208,135.52575],[34.65681,135.51239],[34.74594,135.52942],[34.70136,135.53822],
+[34.70883,135.55889],[34.51222,135.54278],[34.48867,135.53214],[34.50186,135.51403],[34.70761,135.63850],
+[34.65097,135.59472],[34.44567,135.57608],[34.52325,135.59697],[34.61583,135.51192],[34.59833,135.50042],
+[34.62994,135.51742],[34.76436,135.46522],[34.81219,135.46369],[34.78444,135.69728],[34.78026,135.55513],
+[34.59056,135.60925],[34.71700,135.21469],[34.71697,135.25061],[34.67022,135.14344],[34.67314,135.15197],
+[34.64489,135.04956],[34.65600,135.05511],[34.70997,135.30103],[34.64389,135.04775],[34.72872,135.31017],
+[34.76353,135.42097],[34.72197,135.42617],[34.76697,135.35242],[34.82197,135.33806],[34.80000,135.40783],
+[34.87500,135.40994],[34.87828,135.20767],[35.08664,135.22344],[35.13194,135.08222],[34.69389,134.95611],
+[34.76169,134.83772],[34.75544,134.80275],[34.81247,134.98289],[34.97778,134.95800],[34.84878,134.69478],
+[34.84078,134.69911],[34.86381,134.53800],[34.82322,134.47719],[34.73786,134.39825],[35.53811,134.82144],
+[35.46095,134.88080],[35.40387,134.76346],[35.33232,134.85813],[34.33586,134.88477],[34.43974,134.90638],
+[34.54397,134.92277],[34.74697,135.29989],[34.71950,135.26824],[34.72780,135.22639],[34.75961,135.35172],
+[34.72617,135.24189],[34.66409,135.12707],[34.66320,135.13161],[34.80307,134.76889],[34.87690,134.65736],
+[34.83689,134.69822],[35.53701,134.80630],[34.68199,135.11653],[34.73511,135.16503],[34.70567,134.98911],
+[34.87719,135.21628],[35.02306,135.72569],[35.04100,135.75554],[35.04314,135.74197],[35.02078,135.76806],
+[35.04608,135.77142],[35.07014,135.77278],[35.01453,135.74469],[35.00528,135.75275],[35.01222,135.73089],
+[35.01192,135.71569],[34.99708,135.81744],[34.97889,135.77597],[34.98694,135.76689],[34.97853,135.74503],
+[34.97969,135.73508],[35.01972,135.70389],[35.02583,135.68083],[34.97183,135.70467],[34.96214,135.66753],
+[34.93667,135.77017],[34.95547,135.81825],[34.92392,135.73364],[34.91267,135.76469],[34.96217,135.77817],
+[34.96936,135.76620],[34.93456,135.71039],[34.91942,135.69367],[34.91322,135.67906],[34.89203,135.77436],
+[34.92539,135.80942],[34.90994,135.81617],[34.85340,135.78881],[34.84236,135.76600],[34.85992,135.70139],
+[34.88178,135.75617],[34.82069,135.77778],[34.73806,135.83111],[34.73044,135.78517],[35.19664,135.63197],
+[35.01083,135.58250],[35.05408,135.55700],[35.10492,135.46911],[35.05644,135.45481],[35.17331,135.41458],
+[35.30083,135.23769],[35.29508,135.14561],[35.29673,135.17677],[35.39372,135.15711],[35.48400,135.41511],
+[35.43897,135.32767],[35.55028,135.23472],[35.52946,135.18901],[35.62481,135.05453],[35.68723,135.03251],
+[35.59233,134.93188],[35.68234,135.10722],[35.52473,135.09511],[34.98461,135.77161],[35.00708,135.78067],
+[35.00497,135.71847],[34.99544,135.71861],[34.99787,135.74453],[34.99014,135.77706],[35.02481,135.77306],
+[34.98125,135.65375],[34.95808,135.77256],[35.02511,135.72281],[34.93233,135.77944],[35.01167,135.77975],
+[35.06761,135.78636],[35.02944,135.76556],[35.01936,135.79672],[35.02194,135.72333],[35.01347,135.79411],
+[35.01947,135.75842],[35.02903,135.72875],[34.98263,135.74672],[34.99056,135.74811],[34.86900,135.79658],
+[34.89633,135.81161],[34.91319,135.80453],[34.94892,135.70197],[34.91367,135.69397],[34.80217,135.77300],
+[34.77861,135.78681],[35.10356,135.47372],[35.29194,135.11503],[35.28447,135.13378],[35.29000,135.10075],
+[35.45304,135.33947],[35.54993,135.21240],[34.97546,135.78089],[34.96992,135.67995],[35.00816,135.73399],
+[35.01789,135.72799],[34.99573,135.82871],[34.71969,135.79372],[34.66833,135.84626],[34.66933,135.79641],
+[34.59639,135.93806],[34.72111,135.74212],[34.69233,135.81069],[34.66811,135.76736],[34.50905,135.73948],
+[34.51773,135.75577],[34.64980,135.77971],[34.62193,135.78960],[34.62090,135.82295],[34.60032,135.80520],
+[34.50913,135.79976],[34.47646,135.77697],[34.51511,135.85289],[34.50133,135.84686],[34.36972,135.69419],
+[34.45478,135.74597],[34.45904,135.73284],[34.67186,135.71314],[34.71594,135.72702],[34.54502,135.71915],
+[34.52449,135.95593],[34.59153,135.70202],[34.56779,135.75916],[34.60428,135.68678],[34.60980,135.74881],
+[34.55467,135.78728],[34.45722,135.79231],[34.38369,135.78981],[34.39501,135.86270],[33.94233,135.79472],
+[34.70281,135.72797],[34.69561,135.75033],[34.71333,135.78897],[34.69122,135.82422],[34.72117,135.74794],
+[34.68144,135.81478],[34.70761,135.78044],[34.50061,135.73086],[34.63461,135.73685],[34.59547,135.84264],
+[34.48407,135.78622],[34.50723,135.85586],[34.34261,135.70542],[34.55133,135.65924],[34.58808,135.71394],
+[34.96861,135.89697],[35.00078,135.88236],[35.01697,135.85422],[34.95269,135.89253],[35.11281,135.91444],
+[35.10300,135.89217],[34.97067,135.91197],[34.99639,135.89047],[34.97158,135.94528],[35.22814,136.22322],
+[35.21950,136.22525],[35.25486,136.25992],[35.27278,136.25444],[35.37022,136.27664],[35.36636,136.31983],
+[35.37750,136.27678],[35.41972,136.26536],[35.50889,136.22958],[35.12122,136.09350],[35.12942,136.11600],
+[35.13489,136.09286],[35.02389,135.94875],[35.03164,135.96700],[35.01550,135.95236],[34.99386,135.95964],
+[35.05881,135.98664],[35.09322,135.98628],[35.01769,136.01844],[35.02253,136.00628],[34.91939,136.18400],
+[34.87264,136.05503],[34.97078,136.16725],[34.97414,136.18428],[35.06142,136.02011],[34.99527,136.05146],
+[35.00336,136.08931],[35.33453,136.02617],[35.40650,136.03183],[35.17550,136.16364],[35.11425,136.20294],
+[35.10611,136.20458],[35.38286,136.35067],[35.31994,136.29836],[35.01269,136.23736],[35.16956,136.21147],
+[35.02594,135.96186],[35.28347,136.25875],[35.14067,136.09558],[35.00839,135.94428],[35.12578,136.20811],
+[34.99933,135.86981],[35.06992,135.86517],[35.26472,136.26214],[35.06225,135.97817],
+[34.23733,135.28967],[34.19828,135.16347],[34.20122,135.16033],[34.21583,135.16164],[34.25517,135.17036],
+[34.20722,135.22617],[34.21836,135.17414],[34.22761,135.19978],[34.26031,135.32264],[34.27472,135.40828],
+[34.21731,135.30547],[34.32100,135.61364],[34.30761,135.58358],[34.29283,135.47747],[34.30917,135.52839],
+[34.15467,135.22764],[34.08364,135.12911],[34.03583,135.18345],[34.06719,135.21736],[33.88944,135.16083],
+[33.90620,135.16203],[33.76583,135.32417],[33.73389,135.38139],[33.72843,135.39520],[33.72444,135.39361],
+[33.69935,135.43137],[33.47833,135.78500],[33.72611,135.99083],[33.69472,135.96167],[34.26113,135.19842],
+[34.27583,135.19111],[34.26859,135.18375],[34.17403,135.21188],[34.23278,135.17389],[34.35303,135.63058],
+[33.71528,135.99848],[34.21306,135.58361],[33.88561,135.20444],[34.16975,135.37664]
+];
+
+var S=[
+["都島工業",466,0,0],["桜宮",467,0,0],["東",468,0,0],["北野",469,0,0],["西野田工科",470,0,0],["咲くやこの花",471,0,0],["港",472,0,0],["市岡",473,0,0],["大正白稜",474,0,0],["泉尾工業",475,0,0],["清水谷",476,0,0],["夕陽丘",477,0,0],["高津",478,0,0],["大手前",479,0,0],["中央",480,0,0],["天王寺",481,0,0],["住吉",482,0,0],["東住吉",483,0,0],["生野",484,0,0],["教育センター附属",485,0,0],["泉陽",486,0,0],["三国丘",487,0,0],["堺工科",488,0,0],["農芸",489,0,0],["登美丘",490,0,0],["鳳",491,0,0],["泉北",492,0,0],["金岡",493,0,0],["岸和田",494,0,0],["豊中",495,0,0],["池田",496,0,0],["吹田",497,0,0],["千里",498,0,0],["三島",499,0,0],["槻の木",500,0,0],["茨木",501,0,0],["春日丘",502,0,0],["八尾",503,0,0],["枚方",504,0,0],["牧野",505,0,0],["寝屋川",506,0,0],["四條畷",507,0,0],["門真なみはや",508,0,0],["守口東",509,0,0],["交野",510,0,0],["箕面",511,0,0],["摂津",512,0,0],["松原",513,0,0],["富田林",514,0,0],["河南",515,0,0],["河内長野",516,0,0],["大阪狭山",517,0,0],["泉大津",518,0,0],["和泉",519,0,0],["貝塚",520,0,0],["泉佐野",521,0,0],["柏原東",522,0,0],["大東",523,0,0],
+["上宮",524,1,0],["四天王寺",525,1,0],["清風",526,1,0],["明星",527,1,0],["大阪星光学院",528,1,0],["関西大学北陽",529,1,0],["開明",530,1,0],["大阪産業大学附属",531,1,0],["初芝立命館",532,1,0],["帝塚山学院泉ヶ丘",533,1,0],["東大谷",534,1,0],["大阪桐蔭",535,1,0],["近畿大学附属",536,1,0],["清教学園",537,1,0],["PL学園",538,1,0],["大阪学芸",539,1,0],["浪速",540,1,0],["桃山学院",541,1,0],["大商学園",542,1,0],["箕面自由学園",543,1,0],["関西創価",544,1,0],["星翔",545,1,0],["東大阪大学柏原",546,1,0],
+["神戸",547,0,1],["御影",548,0,1],["長田",549,0,1],["兵庫",550,0,1],["星陵",551,0,1],["舞子",552,0,1],["東灘",553,0,1],["神戸商業",554,0,1],["芦屋",555,0,1],["尼崎稲園",556,0,1],["尼崎",557,0,1],["西宮",558,0,1],["宝塚北",559,0,1],["伊丹",560,0,1],["川西緑台",561,0,1],["北摂三田",562,0,1],["篠山鳳鳴",563,0,1],["柏原",564,0,1],["明石北",565,0,1],["加古川東",566,0,1],["高砂",567,0,1],["三木",568,0,1],["西脇",569,0,1],["姫路西",570,0,1],["姫路東",571,0,1],["龍野",572,0,1],["相生",573,0,1],["赤穂",574,0,1],["豊岡",575,0,1],["出石",576,0,1],["八鹿",577,0,1],["和田山",578,0,1],["洲本",579,0,1],["津名",580,0,1],["淡路",581,0,1],
+["甲南",582,1,1],["灘",583,1,1],["六甲学院",584,1,1],["神戸女学院",585,1,1],["親和女子",586,1,1],["須磨学園",587,1,1],["滝川",588,1,1],["白陵",589,1,1],["東洋大学附属姫路",590,1,1],["淳心学院",591,1,1],["近畿大学附属豊岡",592,1,1],["神戸星城",593,1,1],["神戸弘陵学園",594,1,1],["滝川第二",595,1,1],["三田学園",596,1,1],
+["山城",597,0,2],["清明",598,0,2],["紫野",599,0,2],["鴨沂",600,0,2],["洛北",601,0,2],["北稜",602,0,2],["朱雀",603,0,2],["堀川",604,0,2],["西京",605,0,2],["堀川音楽",606,0,2],["洛東",607,0,2],["日吉ヶ丘",608,0,2],["美術工芸",609,0,2],["鳥羽",610,0,2],["開建",611,0,2],["嵯峨野",612,0,2],["北嵯峨",613,0,2],["桂",614,0,2],["洛西",615,0,2],["桃山",616,0,2],["東稜",617,0,2],["洛水",618,0,2],["京都すばる",619,0,2],["京都工学院",620,0,2],["京都奏和",621,0,2],["向陽",622,0,2],["乙訓",623,0,2],["西乙訓",624,0,2],["城南菱創",625,0,2],["東宇治",626,0,2],["莵道",627,0,2],["城陽",628,0,2],["西城陽",629,0,2],["京都八幡",630,0,2],["久御山",631,0,2],["田辺",632,0,2],["木津",633,0,2],["南陽",634,0,2],["北桑田",635,0,2],["亀岡",636,0,2],["南丹",637,0,2],["園部",638,0,2],["農芸(京都)",639,0,2],["須知",640,0,2],["綾部",641,0,2],["福知山",642,0,2],["工業(京都)",643,0,2],["大江",644,0,2],["東舞鶴",645,0,2],["西舞鶴",646,0,2],["海洋",647,0,2],["宮津天橋",648,0,2],["峰山",649,0,2],["丹後緑風(網野)",650,0,2],["丹後緑風(久美浜)",651,0,2],["清新",652,0,2],["宮津天橋(加悦谷)",653,0,2],
+["大谷",654,1,2],["華頂女子",655,1,2],["京都外大西",656,1,2],["京都光華",657,1,2],["京都産業大学附属",658,1,2],["京都女子",659,1,2],["京都精華学園",660,1,2],["京都成章",661,1,2],["京都聖母学院",662,1,2],["京都先端科学大学附属",663,1,2],["京都橘",664,1,2],["京都文教",665,1,2],["同志社",666,1,2],["同志社女子",667,1,2],["ノートルダム女学院",668,1,2],["花園",669,1,2],["東山",670,1,2],["平安女学院",671,1,2],["洛星",672,1,2],["洛南",673,1,2],["龍谷大学付属平安",674,1,2],["立命館宇治",675,1,2],["京都翔英",676,1,2],["京都芸術",677,1,2],["京都西山",678,1,2],["立命館",679,1,2],["同志社国際",680,1,2],["京都廣学館",681,1,2],["京都聖カタリナ",682,1,2],["京都共栄学園",683,1,2],["福知山成美",684,1,2],["福知山淑徳",685,1,2],["日星",686,1,2],["京都暁星",687,1,2],["京都国際",688,1,2],["京都明徳",689,1,2],["京都両洋",690,1,2],["洛陽総合",691,1,2],["一燈園",692,1,2],
+["奈良",693,0,3],["高円芸術",694,0,3],["奈良商工",695,0,3],["山辺",696,0,3],["国際",697,0,3],["一条",698,0,3],["県立大学附属",699,0,3],["高田",700,0,3],["高田商業",701,0,3],["郡山",702,0,3],["大和中央",703,0,3],["添上",704,0,3],["二階堂",705,0,3],["畝傍",706,0,3],["橿原",707,0,3],["桜井",708,0,3],["商業(奈良)",709,0,3],["五條",710,0,3],["御所実業",711,0,3],["青翔",712,0,3],["生駒",713,0,3],["奈良北",714,0,3],["香芝",715,0,3],["宇陀",716,0,3],["王寺工業",717,0,3],["大和広陵",718,0,3],["西和清陵",719,0,3],["法隆寺国際",720,0,3],["磯城野",721,0,3],["高取国際",722,0,3],["奈良南(大淀)",723,0,3],["奈良南(吉野)",724,0,3],["十津川",725,0,3],
+["育英西",726,1,3],["帝塚山",727,1,3],["東大寺学園",728,1,3],["奈良育英",729,1,3],["奈良学園登美ヶ丘",730,1,3],["奈良女子",731,1,3],["奈良大学附属",732,1,3],["奈良文化",733,1,3],["奈良学園",734,1,3],["天理",735,1,3],["橿原学院",736,1,3],["関西中央",737,1,3],["智辯学園",738,1,3],["智辯学園奈良カレッジ",739,1,3],["西大和学園",740,1,3],
+["石山",741,0,4],["大津",742,0,4],["大津商業",743,0,4],["大津清陵",744,0,4],["堅田",745,0,4],["北大津",746,0,4],["瀬田工業",747,0,4],["膳所",748,0,4],["東大津",749,0,4],["河瀬",750,0,4],["彦根工業",751,0,4],["彦根翔西館",752,0,4],["彦根東",753,0,4],["長浜北",754,0,4],["長浜農業",755,0,4],["長浜北星",756,0,4],["虎姫",757,0,4],["伊香",758,0,4],["八幡(滋賀)",759,0,4],["八幡工業",760,0,4],["八幡商業",761,0,4],["草津",762,0,4],["草津東",763,0,4],["湖南農業",764,0,4],["玉川",765,0,4],["守山",766,0,4],["守山北",767,0,4],["国際情報",768,0,4],["栗東",769,0,4],["甲南(滋賀)",770,0,4],["信楽",771,0,4],["水口",772,0,4],["水口東",773,0,4],["野洲",774,0,4],["石部",775,0,4],["甲西",776,0,4],["安曇川",777,0,4],["高島",778,0,4],["能登川",779,0,4],["八日市",780,0,4],["八日市南",781,0,4],["伊吹",782,0,4],["米原",783,0,4],["日野",784,0,4],["愛知",785,0,4],
+["綾羽",786,1,4],["近江",787,1,4],["近江兄弟社",788,1,4],["光泉カトリック",789,1,4],["滋賀学園",790,1,4],["滋賀短期大学附属",791,1,4],["比叡山",792,1,4],["彦根総合",793,1,4],["立命館守山",794,1,4],
+["大阪ビジネスフロンティア",146,0,0],["今宮",147,0,0],["淀商業",148,0,0],["柴島",149,0,0],["淀川清流",150,0,0],["大阪わかば",151,0,0],["生野工業",152,0,0],["旭",153,0,0],["淀川工科",154,0,0],["成城",155,0,0],["阿倍野",156,0,0],["工芸",157,0,0],["阪南",158,0,0],["今宮工科",159,0,0],["西成",160,0,0],["東淀川",161,0,0],["東淀工業",162,0,0],["汎愛",163,0,0],["鶴見商業",164,0,0],["港南造形",165,0,0],["住吉商業",166,0,0],["水都国際",167,0,0],["東住吉総合",168,0,0],["長吉",169,0,0],["桜和",170,0,0],["堺(市立)",171,0,0],["東百舌鳥",172,0,0],["堺上",173,0,0],["福泉",174,0,0],["堺西",175,0,0],["堺東",176,0,0],["成美",177,0,0],["久米田",178,0,0],["産業(岸和田)",179,0,0],["桜塚",180,0,0],["豊島",181,0,0],["刀根山",182,0,0],["千里青雲",183,0,0],["渋谷",184,0,0],["園芸",185,0,0],["北千里",186,0,0],["吹田東",187,0,0],["山田",188,0,0],["芥川",189,0,0],["阿武野",190,0,0],["大冠",191,0,0],["高槻北",192,0,0],["貝塚南",193,0,0],["芦間",194,0,0],["香里丘",195,0,0],["長尾",196,0,0],["枚方津田",197,0,0],["枚方なぎさ",198,0,0],["いちりつ",199,0,0],["茨木西",200,0,0],["北摂つばさ",201,0,0],["茨木工科",202,0,0],["福井",203,0,0],["八尾翠翔",204,0,0],["山本",205,0,0],["八尾北",206,0,0],["佐野",207,0,0],["日根野",208,0,0],["佐野工科",209,0,0],["金剛",210,0,0],["北かわち皐が丘",211,0,0],["西寝屋川",212,0,0],["長野",213,0,0],["大塚",214,0,0],["野崎",215,0,0],["緑風冠",216,0,0],["信太",217,0,0],["伯太",218,0,0],["和泉総合",219,0,0],["箕面東",220,0,0],["懐風館",221,0,0],["門真西",222,0,0],["高石",223,0,0],["藤井寺",224,0,0],["藤井寺工科",225,0,0],["花園(大阪)",226,0,0],["布施",227,0,0],["みどり清朋",228,0,0],["城東工科",229,0,0],["布施工科",230,0,0],["枚岡樟風",231,0,0],["布施北",232,0,0],["日新(東大阪)",233,0,0],["りんくう翔南",234,0,0],["狭山",235,0,0],["能勢",236,0,0],["岬",237,0,0],["教育大附属天王寺",238,0,0],["教育大附属平野",239,0,0],["教育大附属池田",240,0,0],["興國",241,1,0],["大阪夕陽丘学園",242,1,0],["好文学園女子",243,1,0],["大阪",244,1,0],["大阪成蹊女子",245,1,0],["プール学院",246,1,0],["金光藤蔭",247,1,0],["大阪偕星学園",248,1,0],["常翔学園",249,1,0],["大阪信愛学院",250,1,0],["大谷(大阪)",251,1,0],["明浄学院",252,1,0],["あべの翔学",253,1,0],["帝塚山学院",254,1,0],["清明学院",255,1,0],["建国",256,1,0],["城南学園",257,1,0],["英真学園",258,1,0],["大阪金剛インターナショナル",259,1,0],["金蘭会",260,1,0],["ヴェリタス城星学園",261,1,0],["大阪女学院",262,1,0],["相愛",263,1,0],["追手門学院大手前",264,1,0],["昇陽",265,1,0],["香ヶ丘リベルテ",266,1,0],["賢明学院",267,1,0],["堺リベラル",268,1,0],["精華",269,1,0],["大阪商業大学堺",270,1,0],["近畿大学泉州",271,1,0],["梅花",272,1,0],["履正社",273,1,0],["宣真",274,1,0],["関西大学第一",275,1,0],["大阪学院大学",276,1,0],["金蘭千里",277,1,0],["高槻",278,1,0],["金光大阪",279,1,0],["大阪青凌",280,1,0],["関西大学高等部",281,1,0],["大阪国際",282,1,0],["大阪電気通信大学",283,1,0],["常翔啓光学園",284,1,0],["東海大学付属大阪仰星",285,1,0],["関西大倉",286,1,0],["追手門学院",287,1,0],["早稲田大阪",288,1,0],["金光八尾",289,1,0],["利晶学園",290,1,0],["香里ヌヴェール学院",291,1,0],["同志社香里",292,1,0],["大阪暁光",293,1,0],["阪南大学",294,1,0],["四條畷学園",295,1,0],["太成学院大学",296,1,0],["箕面学園",297,1,0],["アサンプション国際",298,1,0],["関西学院千里国際",299,1,0],["関西福祉科学大学",300,1,0],["大阪薫英女学院",301,1,0],["羽衣学園",302,1,0],["清風南海",303,1,0],["大阪緑涼",304,1,0],["四天王寺東",305,1,0],["樟蔭",306,1,0],["大阪商業大学",307,1,0],["アナン学園",308,1,0],["東大阪大学敬愛",309,1,0],["上宮太子",310,1,0],["大阪体育大学浪商",311,1,0],
+["葺合",312,0,1],["六甲アイランド",313,0,1],["科学技術",314,0,1],["夢野台",315,0,1],["神戸鈴蘭台",316,0,1],["北神戸総合",317,0,1],["神戸甲北",318,0,1],["神戸北",319,0,1],["兵庫工業",320,0,1],["神港橘",321,0,1],["北須磨",322,0,1],["神戸学園都市",323,0,1],["伊川谷北",324,0,1],["伊川谷",325,0,1],["須磨東",326,0,1],["須磨友が丘",327,0,1],["神戸高塚",328,0,1],["須磨翔風",329,0,1],["国際(兵庫)",330,0,1],["洲本実業",331,0,1],["淡路三原",332,0,1],["尼崎北",333,0,1],["尼崎小田",334,0,1],["尼崎西",335,0,1],["尼崎工業",336,0,1],["武庫荘総合",337,0,1],["尼崎(市立)",338,0,1],["尼崎双星",339,0,1],["西宮(市立)",340,0,1],["西宮東",341,0,1],["鳴尾",342,0,1],["西宮苦楽園",343,0,1],["西宮北",344,0,1],["西宮甲山",345,0,1],["西宮今津",346,0,1],["西宮南",347,0,1],["宝塚西",348,0,1],["宝塚",349,0,1],["宝塚東",350,0,1],["伊丹北",351,0,1],["伊丹西",352,0,1],["伊丹(市立)",353,0,1],["川西北陵",354,0,1],["川西明峰",355,0,1],["猪名川",356,0,1],["三田祥雲館",357,0,1],["三田西陵",358,0,1],["有馬",359,0,1],["篠山産業",360,0,1],["篠山東雲",361,0,1],["氷上",362,0,1],["氷上西",363,0,1],["明石城西",364,0,1],["明石",365,0,1],["明石西",366,0,1],["明石清水",367,0,1],["明石南",368,0,1],["明石商業",369,0,1],["加古川西",370,0,1],["加古川北",371,0,1],["加古川南",372,0,1],["農業(兵庫)",373,0,1],["東播工業",374,0,1],["高砂南",375,0,1],["松陽",376,0,1],["東播磨",377,0,1],["播磨南",378,0,1],["小野",379,0,1],["小野工業",380,0,1],["三木総合",381,0,1],["三木北",382,0,1],["三木東",383,0,1],["吉川",384,0,1],["社",385,0,1],["北条",386,0,1],["播磨農業",387,0,1],["西脇工業",388,0,1],["多可",389,0,1],["姫路飾西",390,0,1],["姫路海稜",391,0,1],["姫路南",392,0,1],["網干",393,0,1],["家島",394,0,1],["姫路別所",395,0,1],["香寺",396,0,1],["姫路商業",397,0,1],["姫路工業",398,0,1],["飾磨工業",399,0,1],["姫路(市立)",400,0,1],["琴丘",401,0,1],["飾磨(市立)",402,0,1],["播磨福崎",403,0,1],["福崎",404,0,1],["夢前",405,0,1],["神崎",406,0,1],["龍野北",407,0,1],["相生産業",408,0,1],["山崎",409,0,1],["伊和",410,0,1],["千種",411,0,1],["太子",412,0,1],["上郡",413,0,1],["兵庫県立大学附属",414,0,1],["佐用",415,0,1],["豊岡総合",416,0,1],["日高",417,0,1],["浜坂",418,0,1],["香住",419,0,1],["村岡",420,0,1],["但馬農業",421,0,1],["生野(朝来)",422,0,1],["神戸大学附属中等教育学校",423,0,1],["芦屋学園",424,1,1],["関西学院",425,1,1],["仁川学院",426,1,1],["雲雀丘学園",427,1,1],["園田学園",428,1,1],["育英",429,1,1],["啓明学院",430,1,1],["神戸学院大学附属",431,1,1],["神戸国際大学附属",432,1,1],["神戸第一",433,1,1],["神戸野田",434,1,1],["神戸龍谷",435,1,1],["夙川",436,1,1],["神港学園",437,1,1],["神戸山手グローバル",438,1,1],["彩星工科",439,1,1],["三田松聖",440,1,1],["市川",441,1,1],["日ノ本学園",442,1,1],["生野学園",443,1,1],["柳学園蒼開",444,1,1],["甲陽学院",445,1,1],["報徳学園",446,1,1],["愛徳学園",447,1,1],["小林聖心女子学院",448,1,1],["賢明女子学院",449,1,1],["甲子園学院",450,1,1],["神戸海星女子学院",451,1,1],["神戸国際",452,1,1],["神戸常盤女子",453,1,1],["甲南女子",454,1,1],["松蔭",455,1,1],["兵庫大学附属須磨ノ浦",456,1,1],["姫路女学院",457,1,1],["武庫川女子大学附属",458,1,1],["百合学院",459,1,1],
+["京都つくば開成",460,1,2],["京都長尾谷",461,1,2],["京都美山",462,1,2],["聖心学園",463,1,3],["幸福の科学学園関西",464,1,4],["MIHO美学院",465,1,4],
+["和歌山",795,0,5],["星林",796,0,5],["和歌山工業",797,0,5],["和歌山商業",798,0,5],["和歌山北",799,0,5],["和歌山東",800,0,5],["桐蔭",801,0,5],["向陽(和歌山)",802,0,5],["那賀",803,0,5],["粉河",804,0,5],["貴志川",805,0,5],["橋本",806,0,5],["紀北工業",807,0,5],["笠田",808,0,5],["紀北農芸",809,0,5],["海南",810,0,5],["箕島",811,0,5],["耐久",812,0,5],["有田中央",813,0,5],["日高(和歌山)",814,0,5],["紀央館",815,0,5],["南部",816,0,5],["田辺(和歌山)",817,0,5],["田辺工業",818,0,5],["神島",819,0,5],["熊野",820,0,5],["串本古座",821,0,5],["新宮",822,0,5],["新翔",823,0,5],["和歌山市立和歌山",824,0,5],["開智",825,1,5],["近畿大学附属和歌山",826,1,5],["智辯学園和歌山",827,1,5],["和歌山信愛",828,1,5],["初芝橋本",829,1,5],["近畿大学附属新宮",830,1,5],["高野山",831,1,5],["和歌山南陵",832,1,5],["りら創造芸術",833,1,5]
+];
+var CITY=["大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","松原市","大阪市","堺市","堺市","堺市","堺市","堺市","堺市","堺市","堺市","岸和田市","豊中市","池田市","吹田市","吹田市","高槻市","高槻市","茨木市","茨木市","八尾市","枚方市","枚方市","寝屋川市","四條畷市","門真市","守口市","交野市","箕面市","摂津市","松原市","富田林市","富田林市","河内長野市","大阪狭山市","泉大津市","岸和田市","貝塚市","泉佐野市","柏原市","大東市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","堺市","堺市","堺市","大東市","東大阪市","河内長野市","富田林市","大阪市","大阪市","大阪市","豊中市","豊中市","交野市","摂津市","柏原市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","芦屋市","尼崎市","尼崎市","西宮市","宝塚市","伊丹市","川西市","三田市","丹波篠山市","丹波市","明石市","加古川市","高砂市","三木市","西脇市","姫路市","姫路市","たつの市","相生市","赤穂市","豊岡市","豊岡市","養父市","朝来市","洲本市","淡路市","淡路市","芦屋市","神戸市","神戸市","西宮市","神戸市","神戸市","神戸市","高砂市","姫路市","姫路市","豊岡市","神戸市","神戸市","神戸市","三田市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","向日市","長岡京市","長岡京市","宇治市","宇治市","宇治市","城陽市","城陽市","八幡市","久御山町","京田辺市","木津川市","木津川市","京都市","亀岡市","亀岡市","南丹市","南丹市","京丹波町","綾部市","福知山市","福知山市","福知山市","舞鶴市","舞鶴市","宮津市","宮津市","京丹後市","京丹後市","京丹後市","京丹後市","与謝野町","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","京都市","宇治市","宇治市","宇治市","向日市","長岡京市","京田辺市","精華町","南丹市","福知山市","福知山市","福知山市","舞鶴市","宮津市","京都市","京都市","京都市","京都市","京都市","奈良市","奈良市","奈良市","天理市","奈良市","奈良市","奈良市","大和高田市","大和高田市","大和郡山市","大和郡山市","天理市","天理市","橿原市","橿原市","桜井市","桜井市","五條市","御所市","御所市","生駒市","生駒市","香芝市","宇陀市","王寺町","広陵町","三郷町","斑鳩町","田原本町","高取町","大淀町","吉野町","十津川村","奈良市","奈良市","奈良市","奈良市","奈良市","奈良市","奈良市","大和高田市","大和郡山市","天理市","橿原市","桜井市","五條市","香芝市","河合町","大津市","大津市","大津市","大津市","大津市","大津市","大津市","大津市","大津市","彦根市","彦根市","彦根市","彦根市","長浜市","長浜市","長浜市","長浜市","長浜市","近江八幡市","近江八幡市","近江八幡市","草津市","草津市","草津市","草津市","守山市","守山市","栗東市","栗東市","甲賀市","甲賀市","甲賀市","甲賀市","野洲市","湖南市","湖南市","高島市","高島市","東近江市","東近江市","東近江市","米原市","米原市","日野町","愛荘町","草津市","彦根市","近江八幡市","草津市","東近江市","大津市","大津市","彦根市","守山市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","堺市","堺市","堺市","堺市","堺市","堺市","堺市","岸和田市","岸和田市","豊中市","箕面市","豊中市","豊中市","池田市","池田市","吹田市","吹田市","吹田市","高槻市","高槻市","高槻市","高槻市","貝塚市","守口市","枚方市","枚方市","枚方市","枚方市","枚方市","茨木市","茨木市","茨木市","茨木市","八尾市","八尾市","八尾市","泉佐野市","泉佐野市","泉佐野市","富田林市","寝屋川市","寝屋川市","河内長野市","松原市","大東市","大東市","和泉市","和泉市","和泉市","箕面市","羽曳野市","門真市","高石市","藤井寺市","藤井寺市","東大阪市","東大阪市","東大阪市","東大阪市","東大阪市","東大阪市","東大阪市","東大阪市","泉南市","大阪狭山市","能勢町","岬町","大阪市","大阪市","池田市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","大阪市","堺市","堺市","堺市","堺市","堺市","岸和田市","豊中市","豊中市","池田市","吹田市","吹田市","吹田市","高槻市","高槻市","島本町","高槻市","守口市","守口市","枚方市","枚方市","茨木市","茨木市","茨木市","八尾市","富田林市","寝屋川市","寝屋川市","河内長野市","松原市","大東市","大東市","箕面市","箕面市","箕面市","柏原市","摂津市","高石市","高石市","羽曳野市","藤井寺市","東大阪市","東大阪市","東大阪市","東大阪市","太子町","熊取町","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","芦屋市","洲本市","南あわじ市","尼崎市","尼崎市","尼崎市","尼崎市","尼崎市","尼崎市","尼崎市","西宮市","西宮市","西宮市","西宮市","西宮市","西宮市","西宮市","西宮市","宝塚市","宝塚市","宝塚市","伊丹市","伊丹市","伊丹市","川西市","川西市","猪名川町","三田市","三田市","三田市","丹波篠山市","丹波篠山市","丹波市","丹波市","明石市","神戸市","明石市","明石市","明石市","明石市","加古川市","加古川市","加古川市","加古川市","加古川市","高砂市","高砂市","稲美町","播磨町","小野市","小野市","三木市","三木市","三木市","三木市","加東市","加西市","加西市","西脇市","多可町","姫路市","姫路市","姫路市","姫路市","姫路市","姫路市","姫路市","姫路市","姫路市","姫路市","姫路市","姫路市","姫路市","福崎町","福崎町","姫路市","神河町","たつの市","相生市","宍粟市","宍粟市","宍粟市","太子町","上郡町","相生市","佐用町","豊岡市","豊岡市","新温泉町","香美町","香美町","養父市","朝来市","神戸市","芦屋市","西宮市","西宮市","川西市","尼崎市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","三田市","市川町","福崎町","朝来市","洲本市","西宮市","西宮市","神戸市","宝塚市","姫路市","西宮市","神戸市","神戸市","神戸市","神戸市","神戸市","神戸市","姫路市","西宮市","尼崎市","京都市","京都市","京都市","橿原市","大津市","甲賀市","和歌山市","和歌山市","和歌山市","和歌山市","和歌山市","和歌山市","和歌山市","和歌山市","岩出市","紀の川市","紀の川市","橋本市","橋本市","かつらぎ町","かつらぎ町","海南市","有田市","湯浅町","有田川町","御坊市","御坊市","みなべ町","田辺市","田辺市","田辺市","田辺市","串本町","新宮市","新宮市","和歌山市","和歌山市","和歌山市","海南市","和歌山市","橋本市","新宮市","高野町","日高川町","紀美野町"];
+var GENDER=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,2,2,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,2,0,2,0,0,2,0,0,0,0,2,2,0,1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,1,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,2,0,2,2,0,0,0,0,2,0,0,2,0,0,2,0,0,2,0,2,2,0,0,2,0,2,0,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0];
+var RGN=[0,0,0,0,0,0,0,0,1,1,0,1,0,0,0,1,1,1,5,1,6,6,6,6,6,6,6,6,7,2,2,3,3,3,3,3,3,5,4,4,4,4,4,4,4,2,3,5,5,5,5,5,6,7,7,7,5,4,0,1,0,0,1,0,0,0,6,6,6,4,5,5,5,1,1,1,2,2,4,3,5,0,0,1,1,1,1,0,1,3,2,2,3,3,2,2,3,6,6,4,4,4,4,4,5,5,5,5,5,6,6,6,6,6,6,6,3,0,0,3,0,1,1,4,5,5,6,1,0,1,3,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,0,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,0,0,1,1,1,0,1,1,0,1,0,0,0,0,0,0,0,0,1,1,2,2,2,2,2,2,2,3,3,3,3,3,3,1,1,0,0,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,1,2,1,1,0,0,1,2,0,0,0,0,0,1,2,2,2,0,0,0,0,0,0,0,1,0,0,1,1,2,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,2,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,2,2,1,1,1,2,2,1,1,0,1,1,0,1,0,0,1,0,1,1,0,0,0,1,1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,6,6,6,6,6,6,6,7,7,2,2,2,2,2,2,3,3,3,3,3,3,3,7,4,4,4,4,4,4,3,3,3,3,5,5,5,7,7,7,5,4,4,5,5,4,4,6,6,6,2,5,4,6,5,5,5,5,5,5,5,5,5,5,7,5,2,7,1,1,2,1,1,0,0,0,1,1,1,0,0,1,1,1,1,1,1,1,0,1,0,0,0,0,0,0,6,6,6,6,6,7,2,2,2,3,3,3,3,3,3,3,4,4,4,4,3,3,3,5,5,4,4,5,5,4,4,2,2,2,5,3,6,6,5,5,5,5,5,5,5,7,0,0,0,0,1,0,0,0,0,0,1,1,1,1,1,1,1,1,3,6,6,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,3,3,3,6,6,6,6,4,1,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,0,3,3,3,2,2,1,1,0,1,0,1,0,0,0,0,0,3,5,5,6,6,3,3,1,3,5,3,0,1,1,0,0,1,5,3,2,1,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,2,2,2,2,2,2,2,0,0,0,0,0,0,2,0,1,0];
+var RGNNAMES={"0":["大阪市 北部","大阪市 南部","豊能","三島","北河内","中河内・南河内","泉北","泉南"],"1":["神戸市 東部","神戸市 西部","阪神（尼崎・伊丹・川西）","阪神（西宮・宝塚・三田）","東播磨・北播磨","西播磨","但馬・丹波・淡路"],"2":["京都市 北部","京都市 南部","山城（南部）","口丹波・中丹・丹後（中北部）"],"3":["北部（奈良市周辺）","中和（橿原周辺）","南部・東部（宇陀・五條・吉野）"],"4":["湖南（大津・草津）","甲賀・湖東（近江八幡・彦根）","湖北・湖西（長浜・高島）"],"5":["紀北（和歌山市・橋本）","紀中（有田・御坊）","紀南（田辺・新宮）"]};
+
+var ACC={
+"都島工業":{s:"都島駅",l:"Osaka Metro谷町線",w:"徒歩約1分",b:null,u:"https://www3.osaka-c.ed.jp/miyakojima-t/"},
+"桜宮":{s:"城北公園通駅",l:"JRおおさか東線",w:"北へ約800m",b:"市バス「桜宮高校」下車",u:"https://www3.osaka-c.ed.jp/sakuranomiya/"},
+"東":{s:"京橋駅",l:"JR大阪環状線・京阪本線",w:"徒歩約6分",b:null,u:"https://www3.osaka-c.ed.jp/higashi/"},
+"北野":{s:"十三駅",l:"阪急神戸線・宝塚線・京都線",w:"南西へ約700m",b:"大阪シティバス42系統「北野高校前」下車",u:"https://www.osaka-c.ed.jp/kitano/access.html"},
+"西野田工科":{s:"野田駅(阪神)",l:"阪神本線・JR東西線",w:"徒歩約5分",b:null,u:"https://www.osaka-c.ed.jp/nishinoda-t/"},
+"咲くやこの花":{s:"西九条駅",l:"JR大阪環状線・阪神なんば線",w:"徒歩約6分",b:null,u:"https://www.osaka-c.ed.jp/sakuyakonohana/"},
+"港":{s:"弁天町駅",l:"JR環状線・Osaka Metro中央線",w:"徒歩約5分",b:null,u:"https://minato-hs.ed.jp/access/"},
+"市岡":{s:"弁天町駅",l:"JR環状線・Osaka Metro中央線",w:"徒歩約5分",b:null,u:"https://www2.osaka-c.ed.jp/ichioka/"},
+"大正白稜":{s:"大正駅",l:"JR環状線・Osaka Metro長堀鶴見緑地線",w:"南西へ約1.2km",b:"バス「永楽橋筋」約5分",u:"https://www.osaka-c.ed.jp/taishohakuryo/"},
+"泉尾工業":{s:"大正駅",l:"JR環状線",w:"約1.8km",b:"108号「泉尾四丁目」下車徒歩2分",u:"https://www.osaka-c.ed.jp/izuo-t/"},
+"清水谷":{s:"玉造駅",l:"JR大阪環状線・Osaka Metro",w:"約500m",b:null,u:"https://www2.osaka-c.ed.jp/shimizudani/"},
+"夕陽丘":{s:"桃谷駅",l:"JR環状線",w:"西へ約0.5km",b:null,u:"https://yuhigaoka-hs.ed.jp/"},
+"高津":{s:"近鉄上本町駅",l:"近鉄大阪線・奈良線",w:"北東へ約800m",b:null,u:"https://www.osaka-c.ed.jp/kozu/"},
+"大手前":{s:"天満橋駅",l:"Osaka Metro谷町線・京阪本線",w:"3番出口から東南へ約400m",b:"大阪シティバス「大阪城大手前」下車",u:"https://otemae-hs.ed.jp/access/"},
+"中央":{s:"天満橋駅",l:"Osaka Metro谷町線・京阪本線",w:"4番出口から徒歩約1分",b:null,u:"https://www3.osaka-c.ed.jp/chuo/"},
+"天王寺":{s:"美章園駅",l:"JR阪和線",w:"0.3km",b:null,u:"https://tennoji-hs.jp/guidance/access"},
+"住吉":{s:"北畠駅",l:"阪堺電軌上町線",w:"約100m",b:null,u:"https://sumiyoshi.ed.jp/access/"},
+"東住吉":{s:"針中野駅",l:"近鉄南大阪線",w:"東約900m",b:null,u:"https://www.osaka-c.ed.jp/higashisumiyoshi/"},
+"生野":{s:"河内松原駅",l:"近鉄南大阪線",w:"約600m",b:null,u:"https://www.osaka-c.ed.jp/ikuno/"},
+"教育センター附属":{s:"あびこ駅",l:"Osaka Metro御堂筋線",w:"東北東へ1.2km",b:"北港観光バス「教育センター附属高校」下車",u:"https://www2.osaka-c.ed.jp/partner/"},
+"泉陽":{s:"花田口駅",l:"阪堺線",w:"東へ約300m",b:null,u:"https://www2.osaka-c.ed.jp/senyo/"},
+"三国丘":{s:"堺東駅",l:"南海高野線",w:"東出口より東へ300m",b:null,u:"https://www.osaka-c.ed.jp/mikunigaoka/"},
+"堺工科":{s:"百舌鳥駅",l:"JR阪和線",w:"西へ1.2km",b:"バス「大仙中町」下車",u:"https://www.osaka-c.ed.jp/sakai-t/"},
+"農芸":{s:"萩原天神駅",l:"南海高野線",w:"徒歩約22分",b:"南海バス「農芸高校前」下車徒歩5分",u:"https://osaka-nougei.ed.jp/introduction/access/"},
+"登美丘":{s:"北野田駅",l:"南海高野線",w:"南西へ約650m",b:null,u:"https://www.osaka-c.ed.jp/tomioka/"},
+"鳳":{s:"富木駅",l:"JR阪和線",w:"徒歩約15分",b:"南海バス「草部」下車徒歩7分",u:"https://ohtori-hs.ed.jp/access/"},
+"泉北":{s:"泉ヶ丘駅",l:"泉北高速鉄道",w:"南西へ約1.2km",b:"南海バス16系統「泉北高校前」下車",u:"https://semboku-h.ed.jp/access"},
+"金岡":{s:"初芝駅",l:"南海高野線",w:"北へ約1500m",b:null,u:"https://www2.osaka-c.ed.jp/kanaoka/"},
+"岸和田":{s:"蛸地蔵駅",l:"南海本線",w:"北東へ約300m",b:null,u:"https://www.osaka-c.ed.jp/kishiwada/"},
+"豊中":{s:"豊中駅",l:"阪急宝塚線",w:"約1.2km",b:"阪急バス「豊中高校前」下車すぐ",u:"https://www.osaka-c.ed.jp/toyonaka/access.html"},
+"池田":{s:"石橋阪大前駅",l:"阪急宝塚線",w:"北東へ約1.5km",b:null,u:"https://ikeda-h.ed.jp/access.html"},
+"吹田":{s:"岸辺駅",l:"JR京都線",w:"徒歩20分",b:"阪急バス「吹高口」下車",u:"https://www.osaka-c.ed.jp/suita/"},
+"千里":{s:"南千里駅",l:"阪急千里線",w:"北東へ1km",b:null,u:"https://osaka-senri-hs.net/access/"},
+"三島":{s:"摂津富田駅",l:"JR京都線",w:"北東へ1.6km",b:"高槻市営バス「明治大阪工場前」下車",u:"https://mishima-hs.ed.jp/access/"},
+"槻の木":{s:"高槻市駅",l:"阪急京都線",w:"南へ約700m",b:null,u:"https://www.tsukinoki.ed.jp/"},
+"茨木":{s:"茨木市駅",l:"阪急京都線",w:"南西650m",b:null,u:"https://www2.osaka-c.ed.jp/ibaraki/"},
+"春日丘":{s:"茨木駅",l:"JR京都線",w:"北西へ約300m",b:null,u:"https://www2.osaka-c.ed.jp/kasugaoka/"},
+"八尾":{s:"八尾駅",l:"JR大和路線",w:"北へ約700m",b:null,u:"https://www2.osaka-c.ed.jp/yao/"},
+"枚方":{s:"枚方市駅",l:"京阪本線",w:"南南東へ800m",b:null,u:"https://www2.osaka-c.ed.jp/hirakata/"},
+"寝屋川":{s:"寝屋川市駅",l:"京阪本線",w:"東へ約500m（徒歩7分）",b:null,u:"https://www.osaka-c.ed.jp/neyagawa/"},
+"四條畷":{s:"四条畷駅",l:"JR学研都市線",w:null,b:"京阪バス「国道中野」下車南へ700m",u:"https://www.osaka-c.ed.jp/shijonawate/"},
+"門真なみはや":{s:"大和田駅・門真南駅",l:"京阪本線・Osaka Metro",w:null,b:"京阪バス「門真団地」下車北東へ200m",u:"https://www2.osaka-c.ed.jp/kadomanamihaya"},
+"守口東":{s:"守口駅",l:"Osaka Metro谷町線",w:"徒歩約10分",b:null,u:"https://www.osaka-c.ed.jp/moriguchihigashi/"},
+"交野":{s:"河内磐船駅",l:"JR学研都市線",w:"徒歩約11分",b:null,u:"https://www2.osaka-c.ed.jp/katano/"},
+"箕面":{s:"牧落駅",l:"阪急箕面線",w:"東南へ約1km",b:"阪急バス「箕面高校前」下車",u:"https://minoh-high-school.com/access/"},
+"摂津":{s:"摂津市駅",l:"阪急京都線",w:"東へ500m",b:null,u:"https://www.settsuhs.com/05_access"},
+"松原":{s:"河内天美駅",l:"近鉄南大阪線",w:"約2.5km",b:null,u:"https://www.osaka-matsubara.ed.jp/"},
+"富田林":{s:"富田林西口駅",l:"近鉄長野線",w:"南へ500m",b:null,u:"https://tonko.ed.jp/access/"},
+"河内長野":{s:"千代田駅",l:"南海高野線",w:"南西へ約800m",b:null,u:"https://osaka-nagano.ed.jp/access/"},
+"大阪狭山":{s:"金剛駅",l:"南海高野線",w:"西へ1.1km",b:null,u:"https://www.osaka-c.ed.jp/sayama/"},
+"泉大津":{s:"信太山駅",l:"JR阪和線",w:"徒歩約12分",b:null,u:"https://www.osaka-c.ed.jp/izumiohtsu/"},
+"和泉":{s:"東岸和田駅",l:"JR阪和線",w:"西へ800m",b:null,u:"https://www2.osaka-c.ed.jp/izumi/"},
+"貝塚":{s:"貝塚駅",l:"南海本線",w:"約880m",b:null,u:"https://www.osaka-c.ed.jp/kaizuka/"},
+"泉佐野":{s:"泉佐野駅",l:"南海本線",w:"約10分",b:"JR日根野駅からバス約10分",u:"https://sano-h.ed.jp/access/"},
+"大東":{s:"野崎駅",l:"JR学研都市線",w:"徒歩約18分",b:null,u:"https://www.osaka-c.ed.jp/daito/"},
+"上宮":{s:"大阪上本町駅",l:"近鉄",w:"徒歩6分",b:null,u:"https://www.uenomiya.ed.jp/access/"},
+"四天王寺":{s:"四天王寺前夕陽ヶ丘駅",l:"大阪メトロ谷町線",w:"徒歩5分",b:null,u:"https://www.shitennoji.ed.jp/stnnj/information/info6"},
+"清風":{s:"大阪上本町駅",l:"近鉄大阪線・奈良線",w:"徒歩約3分",b:null,u:"https://www.seifu.ac.jp/access/"},
+"明星":{s:"玉造駅",l:"大阪メトロ・JR環状線",w:"大阪メトロから徒歩7分",b:null,u:"https://www.meisei.ed.jp/access/"},
+"大阪星光学院":{s:"四天王寺前夕陽ヶ丘駅",l:"大阪メトロ谷町線",w:"徒歩約2分",b:null,u:"https://www.osakaseiko.ac.jp/access/"},
+"関西大学北陽":{s:"上新庄駅",l:"阪急京都線",w:"徒歩8分",b:null,u:"https://www.kansai-u.ac.jp/hokuyo/"},
+"開明":{s:"京橋駅",l:"JR・京阪・大阪メトロ",w:"徒歩8分",b:null,u:"https://kaimei.ed.jp/access"},
+"大阪産業大学附属":{s:"今福鶴見駅",l:"大阪メトロ長堀鶴見緑地線",w:"徒歩7分",b:"大阪シティバス「鶴見六丁目」下車",u:"https://www.osaka-sandai.ed.jp/"},
+"初芝立命館":{s:"初芝駅",l:"南海高野線",w:"徒歩9分",b:"スクールバスあり",u:"https://www.rishogakuen.ed.jp/ritsumeikan/"},
+"帝塚山学院泉ヶ丘":{s:"泉ヶ丘駅",l:"泉北高速鉄道線",w:null,b:"南海バス217系統約10分",u:"https://www.tezuka-i-h.jp/access/"},
+"東大谷":{s:"泉ヶ丘駅",l:"泉北高速鉄道線",w:"徒歩約8分",b:"スクールバスあり",u:"https://higashiohtani.ac.jp/access"},
+"大阪桐蔭":{s:"野崎駅",l:"JR学研都市線",w:"徒歩約13分",b:"近鉄バス「産業大学前」下車",u:"https://www.osakatoin.ed.jp/access/"},
+"近畿大学附属":{s:"長瀬駅",l:"近鉄大阪線",w:"徒歩約20分",b:"八戸ノ里駅から近鉄バス約5分",u:"https://www.jsh.kindai.ac.jp/access/"},
+"清教学園":{s:"河内長野駅",l:"南海高野線・近鉄長野線",w:"徒歩約10分",b:null,u:"https://www.seikyo.ed.jp/access/"},
+"PL学園":{s:"喜志駅",l:"近鉄長野線",w:"徒歩約12分",b:null,u:"https://www.pl-gakuen.ac.jp/access/"},
+"大阪学芸":{s:"長居駅",l:"JR阪和線・Osaka Metro御堂筋線",w:"JR長居駅より徒歩約6分",b:null,u:"https://www.osakagakugei.ac.jp/senior/access"},
+"浪速":{s:"我孫子前駅",l:"南海高野線",w:"徒歩約6分",b:null,u:"https://www.naniwa.ed.jp/about/access/"},
+"桃山学院":{s:"昭和町駅",l:"Osaka Metro御堂筋線",w:"徒歩約5分",b:null,u:"https://www.momoyamagakuin-h.ed.jp/about/access/"},
+"大商学園":{s:"服部天神駅",l:"阪急宝塚線",w:"徒歩約10分",b:null,u:"https://www.daisho.ac.jp/about/access/"},
+"箕面自由学園":{s:"桜井駅",l:"阪急箕面線",w:"徒歩約7分",b:"阪急バス「南桜井」下車",u:"https://mino-jiyu.ed.jp/hs/access.html"},
+"関西創価":{s:"河内磐船駅",l:"JR学研都市線",w:"徒歩約20分",b:null,u:"https://kansai-senior.soka.ed.jp/access/"},
+"星翔":{s:"摂津市駅",l:"阪急京都線",w:"徒歩10分",b:null,u:"https://www.osaka-seisho.ed.jp/info/access/"},
+"東大阪大学柏原":{s:"志紀駅",l:"JR大和路線",w:"徒歩15分",b:null,u:"https://kashiwara.ed.jp/school-guide/access"},
+"神戸":{s:"阪急王子公園駅",l:"阪急神戸本線",w:"約20分",b:"市バス2系統「神戸高校前」下車",u:"https://www.hyogo-c.ed.jp/~kobe-hs/"},
+"御影":{s:"阪神石屋川駅",l:"阪神本線",w:"約5分",b:null,u:"https://dmzcms.hyogo-c.ed.jp/mikage-hs/NC3/"},
+"長田":{s:"高速長田駅",l:"神戸高速鉄道・神戸市営地下鉄",w:"約15分",b:"市バス4系統「長田神社前」下車徒歩5分",u:"https://www.hyogo-c.ed.jp/~nagata-hs/"},
+"兵庫":{s:"上沢駅",l:"神戸市営地下鉄",w:"約10分",b:null,u:"https://dmzcms.hyogo-c.ed.jp/hyogo-hs/NC3/"},
+"星陵":{s:"垂水駅",l:"JR神戸線・山陽電鉄",w:"約25分",b:"山陽バス2・3系統「星陵高校前」下車",u:"https://hyogo-seiryo-hs.edumap.jp/"},
+"舞子":{s:"JR舞子駅",l:"JR山陽本線・山陽電鉄",w:null,b:"53系統「多聞東小学校前」下車徒歩約5分",u:"https://www.hyogo-c.ed.jp/~maiko-hs/"},
+"東灘":{s:"阪神深江駅",l:"阪神本線",w:"徒歩20〜25分",b:"市バス30系統「東灘高校校門前」下車",u:"https://dmzcms.hyogo-c.ed.jp/higashinada-hs/NC3/"},
+"神戸商業":{s:"JR垂水駅",l:"JR山陽本線・山陽電鉄",w:"約25分",b:"51系統「県商前」下車",u:"https://www2.hyogo-c.ed.jp/weblog2/kobe-chs/"},
+"芦屋":{s:"阪神芦屋駅",l:"阪神本線・JR・阪急",w:"阪神芦屋駅から徒歩8分",b:null,u:"https://dmzcms.hyogo-c.ed.jp/kenashi-hs/NC3/"},
+"尼崎稲園":{s:"JR猪名寺駅",l:"JR福知山線",w:"徒歩2分",b:null,u:"https://dmzcms.hyogo-c.ed.jp/inazono-hs/NC3/"},
+"尼崎":{s:"阪神大物駅",l:"阪神本線",w:"約8分",b:"阪神バス「県立尼崎高校前」下車",u:"https://www.hyogo-c.ed.jp/~kenama-hs/"},
+"西宮":{s:"阪急甲東園駅",l:"阪急今津線",w:"約8分",b:null,u:"https://www.hyogo-c.ed.jp/~kennishi-hs/"},
+"宝塚北":{s:"JR宝塚駅",l:"JR福知山線・阪急今津線",w:"約25分",b:"阪急バス「すみれガ丘一丁目」下車約10分",u:"https://dmzcms.hyogo-c.ed.jp/takarakita-hs/NC3/"},
+"伊丹":{s:"JR北伊丹駅",l:"JR福知山線",w:"約15分",b:"市バス「県高前」下車徒歩約3分",u:"https://dmzcms.hyogo-c.ed.jp/kenita-hs/NC3/"},
+"川西緑台":{s:"能勢電鉄平野駅",l:"能勢電鉄妙見線",w:"約15分",b:"阪急バス「緑台公民館前」下車徒歩5分",u:"https://dmzcms.hyogo-c.ed.jp/midoridai-hs/NC3/"},
+"北摂三田":{s:"フラワータウン駅",l:"神戸電鉄公園都市線",w:"約15分",b:"神姫バス「狭間が丘1丁目」下車",u:"https://www.hyogo-c.ed.jp/~hokusetsusanda-hs/"},
+"篠山鳳鳴":{s:"篠山口駅",l:"JR福知山線",w:null,b:"神姫バス「城北口」下車徒歩約10分",u:"https://www2.hyogo-c.ed.jp/weblog2/homei-hs/"},
+"柏原":{s:"柏原駅",l:"JR福知山線",w:"約7分",b:null,u:"https://www2.hyogo-c.ed.jp/weblog2/kaibara-hs/"},
+"明石北":{s:"大久保駅",l:"JR山陽本線",w:"約30分",b:"神姫バス「明石北高校前」下車徒歩約3分",u:"https://dmzcms.hyogo-c.ed.jp/meihoku-hs/NC3/"},
+"加古川東":{s:"加古川駅",l:"JR山陽本線・JR加古川線",w:"約7分",b:null,u:"https://www.hyogo-c.ed.jp/~kakohigashi-hs/"},
+"高砂":{s:"山陽電鉄高砂駅",l:"山陽電鉄本線",w:"約10分",b:null,u:"https://dmzcms.hyogo-c.ed.jp/takasago-hs/NC3/"},
+"三木":{s:"大村駅",l:"神戸電鉄粟生線",w:"約14分",b:"「三木高校口」下車徒歩約6分",u:"https://www2.hyogo-c.ed.jp/weblog2/miki-hs/"},
+"西脇":{s:"西脇市駅",l:"JR加古川線",w:"約15分",b:null,u:"https://dmzcms.hyogo-c.ed.jp/nishiwaki-hs/NC3/"},
+"姫路西":{s:"姫路駅",l:"JR山陽本線・山陽電鉄",w:"約35分",b:"神姫バス11番系統「西高前」下車",u:"https://www2.hyogo-c.ed.jp/weblog2/himenisi-hs/"},
+"姫路東":{s:"京口駅",l:"JR播但線",w:"約10分",b:"神姫バス「姫山公園北」下車",u:"https://dmzcms.hyogo-c.ed.jp/himehigashi-hs/NC3/"},
+"龍野":{s:"本竜野駅",l:"JR姫新線",w:"約25分",b:"コミュニティバス「日山」下車徒歩4分",u:"https://dmzcms.hyogo-c.ed.jp/tatsuno-hs/NC3/"},
+"相生":{s:"相生駅",l:"JR山陽本線",w:"約10分",b:null,u:"https://dmzcms.hyogo-c.ed.jp/aioi-hs/NC3/"},
+"赤穂":{s:"播州赤穂駅",l:"JR赤穂線",w:"約26分",b:"バス「赤穂高校西」下車徒歩3分",u:"https://www.hyogo-c.ed.jp/~ako-hs/"},
+"豊岡":{s:"豊岡駅",l:"JR山陰本線",w:"約13分",b:"全但バス「豊田町」下車",u:"https://www2.hyogo-c.ed.jp/weblog2/toyooka-hs/"},
+"出石":{s:"豊岡駅",l:"JR山陰本線",w:null,b:"全但バス出石行 約30分",u:"https://dmzcms.hyogo-c.ed.jp/izushi-hs/NC3/"},
+"八鹿":{s:"八鹿駅",l:"JR山陰本線",w:"約25分",b:"全但バス「八鹿高校」下車",u:"https://www.hyogo-c.ed.jp/~yoka-hs/"},
+"和田山":{s:"和田山駅",l:"JR山陰本線・JR播但線",w:"約15分",b:null,u:"https://www.hyogo-c.ed.jp/~wadayama-chs/"},
+"洲本":{s:null,l:null,w:null,b:"洲本高速バスセンターから南西約2km",u:"https://www.hyogo-c.ed.jp/~sumoto-hs/"},
+"津名":{s:null,l:null,w:null,b:"津名港バスターミナルから徒歩約10分",u:"https://www.hyogo-c.ed.jp/~tsuna-hs/"},
+"淡路":{s:null,l:null,w:null,b:"高速バス「淡路高校前」下車",u:"https://www.hyogo-c.ed.jp/~awaji-ahs/"},
+"甲南":{s:"阪急芦屋川駅",l:"阪急神戸線",w:"約20分",b:"阪急バス「甲南高校前」下車",u:"https://www.konan.ed.jp/information/access.html"},
+"灘":{s:"阪神魚崎駅",l:"阪神本線",w:"約10分",b:null,u:"https://www.nada.ac.jp/access.html"},
+"六甲学院":{s:"六甲駅",l:"阪急神戸線",w:"約20分",b:"市バス36系統「六甲台南口」下車徒歩10分",u:"http://www.rokkogakuin.ed.jp/public_html/access/"},
+"神戸女学院":{s:"門戸厄神駅",l:"阪急今津線",w:"約15分",b:null,u:"https://www.kobejogakuin-h.ed.jp/"},
+"親和女子":{s:"六甲駅",l:"阪急神戸線",w:"約15分",b:"市バス16系統「高羽町」下車徒歩約5分",u:"https://www.kobe-shinwa.ed.jp/access/"},
+"須磨学園":{s:"板宿駅",l:"神戸市営地下鉄・山陽電鉄",w:"約15分",b:null,u:"https://www.suma.ac.jp/access/"},
+"滝川":{s:"板宿駅",l:"神戸市営地下鉄・山陽電鉄",w:"約5分",b:null,u:"https://takigawa.ed.jp/access/"},
+"白陵":{s:"曽根駅",l:"JR山陽本線",w:"約15分",b:null,u:"https://www.hakuryo.ed.jp/access.html"},
+"東洋大学附属姫路":{s:"姫路駅",l:"JR山陽本線",w:null,b:"神姫バス専用直通バスで約25分",u:"https://www.toyo.ac.jp/himeji/access/"},
+"淳心学院":{s:"姫路駅",l:"JR神戸線・山陽電鉄",w:"約15分",b:"神姫バス「姫山公園南」下車",u:"https://www.junshin.ed.jp/access"},
+"近畿大学附属豊岡":{s:"豊岡駅",l:"JR山陰本線",w:"約15分",b:null,u:"https://www.kindai-toyooka.ed.jp/access/"},
+"神戸星城":{s:"妙法寺駅",l:"神戸市営地下鉄",w:"約15分",b:"スクールバス5コース運行",u:"https://www.seijoh.ac.jp/"},
+"神戸弘陵学園":{s:"北鈴蘭台駅",l:"神戸電鉄",w:"約15分",b:"スクールバス5路線運行",u:"https://www.kobe-koryo.com/"},
+"滝川第二":{s:"明石駅",l:"JR山陽本線・山陽電鉄",w:null,b:"明石駅から直通バスで約25分",u:"https://takigawa2.ed.jp/access"},
+"三田学園":{s:"横山駅",l:"神戸電鉄三田線",w:"約1分",b:null,u:"https://www.sandagakuen.ed.jp/access/"},
+"山城":{s:"円町駅",l:"JR嵯峨野線",w:"約12分",b:"市バス205系統「府立体育館前」下車徒歩3分",u:"https://www.kyoto-be.ne.jp/yamashiro-hs/mt/access/"},
+"紫野":{s:"北大路駅",l:"京都市営地下鉄烏丸線",w:null,b:"市バス206系統「船岡山」下車北へ徒歩3分",u:"https://cms.edu.city.kyoto.jp/weblog/index.php?id=300803"},
+"鴨沂":{s:"神宮丸太町駅",l:"京阪電車",w:"約10分",b:"市バス「荒神口」下車徒歩3分",u:"https://www.kyoto-be.ne.jp/ohki-hs/mt/school/access/"},
+"洛北":{s:"北山駅",l:"地下鉄烏丸線",w:"約12分",b:"市バス4系統「洛北高校正門前」下車",u:"https://www.kyoto-be.ne.jp/rakuhoku-hs/mt/contact/access/"},
+"堀川":{s:"大宮駅",l:"阪急京都本線",w:"4分",b:"市バス12系統「堀川蛸薬師」下車徒歩2分",u:"https://www.edu.city.kyoto.jp/hp/horikawa/"},
+"西京":{s:"西大路御池駅",l:"京都市営地下鉄東西線",w:"1分",b:null,u:"https://www.edu.city.kyoto.jp/hp/saikyo/"},
+"嵯峨野":{s:"常盤駅",l:"京福電鉄北野線",w:"約1分",b:"市バス「常盤・嵯峨野高校前」下車",u:"https://www.kyoto-be.ne.jp/sagano-hs/mt/contat/access/"},
+"北嵯峨":{s:"JR嵯峨嵐山駅",l:"JR嵯峨野線",w:"約12分",b:"市バス28番「大覚寺」下車徒歩5分",u:"https://www.kyoto-be.ne.jp/kitasaga-hs/mt/Access/"},
+"桂":{s:"桂駅",l:"阪急嵐山線・京都本線",w:"約10分",b:"69号系統「桂高校前」下車徒歩3分",u:"http://www.kyoto-be.ne.jp/katsura-hs/mt/school/access/"},
+"洛西":{s:"桂駅",l:"阪急京都線",w:null,b:"市バス西2系統「洛西高校前」下車徒歩2分",u:"http://www.kyoto-be.ne.jp/rakusai-hs/mt/access/"},
+"桃山":{s:"丹波橋駅",l:"京阪本線・近鉄京都線",w:"約5分",b:null,u:"http://www.kyoto-be.ne.jp/momoyama-hs/mt/contact/access/"},
+"東稜":{s:"小野駅",l:"京都市営地下鉄東西線",w:"約12分",b:"京阪バス「醍醐新町」下車徒歩1分",u:"https://www.kyoto-be.ne.jp/touryou-hs/"},
+"洛水":{s:"中書島駅",l:"京阪本線",w:null,b:"市バス20系統「洛水高校前」下車",u:"https://www.kyoto-be.ne.jp/rakusui-hs/mt/Access/"},
+"京都すばる":{s:"向島駅",l:"近鉄京都線",w:"約10分",b:null,u:"https://www.kyoto-be.ne.jp/subaru-hs/mt/contact/access"},
+"京都工学院":{s:"龍谷大前深草駅",l:"京阪本線",w:"約13分",b:null,u:"https://cms.edu.city.kyoto.jp/weblog/index.php?id=300254"},
+"京都奏和":{s:"伏見稲荷駅",l:"京阪本線",w:"約6分",b:null,u:"https://cms.edu.city.kyoto.jp/weblog/index.php?id=301107"},
+"向陽":{s:"西向日駅",l:"阪急京都線",w:"約13分",b:null,u:"https://www.kyoto-be.ne.jp/kouyou-hs/mt/access/"},
+"乙訓":{s:"長岡天神駅",l:"阪急京都線",w:"約8分",b:null,u:"https://www.kyoto-be.ne.jp/otokuni-hs/"},
+"西乙訓":{s:"西山天王山駅",l:"阪急京都線",w:"約13分",b:"バス1・3系統「金ヶ原」下車",u:"https://www.kyoto-be.ne.jp/nishiotokuni-hs/mt/access/"},
+"城南菱創":{s:"小倉駅",l:"近鉄京都線",w:"約10分",b:null,u:"https://www.kyoto-be.ne.jp/jonanryoso-hs/"},
+"東宇治":{s:"木幡駅",l:"JR奈良線",w:"約15分",b:"京阪バス「東宇治高校」下車徒歩2分",u:"https://www.kyoto-be.ne.jp/higashiuji-hs/mt/access/"},
+"莵道":{s:"黄檗駅",l:"JR奈良線・京阪宇治線",w:"約15分",b:"京都京阪バス「菟道高校」下車徒歩3分",u:"https://www.kyoto-be.ne.jp/todou-hs/mt/access/"},
+"城陽":{s:"城陽駅",l:"JR奈良線",w:"約10分",b:null,u:"https://www.kyoto-be.ne.jp/jyouyou-hs/mt/access/"},
+"西城陽":{s:"富野荘駅",l:"近鉄京都線",w:"約15分",b:null,u:"https://www.kyoto-be.ne.jp/nishijyouyou-hs/mt/access/"},
+"京都八幡":{s:"樟葉駅",l:"京阪本線",w:null,b:"京阪バス約8分「京都八幡高校」下車",u:"https://www.kyoto-be.ne.jp/kyotoyawata-hs/mt/access/"},
+"久御山":{s:"大久保駅",l:"近鉄京都線",w:null,b:"京阪宇治バス約10分「久御山団地」下車徒歩2分",u:"https://www.kyoto-be.ne.jp/kumiyama-hs/mt/access/"},
+"田辺":{s:"新田辺駅",l:"近鉄京都線",w:"約5分",b:null,u:"https://www.kyoto-be.ne.jp/tanabe-hs/mt/Access/"},
+"木津":{s:"木津駅",l:"JR関西本線・奈良線",w:"約8分",b:null,u:"https://www.kyoto-be.ne.jp/kizu-hs/mt/access/"},
+"南陽":{s:"山田川駅",l:"近鉄京都線",w:"約15分",b:"きのつバス約5分",u:"https://www.kyoto-be.ne.jp/nannyou-hs/mt/access/"},
+"亀岡":{s:"亀岡駅",l:"JR嵯峨野線",w:"約10分",b:"京阪京都交通「グランド前」下車徒歩1分",u:"https://www.kyoto-be.ne.jp/kameoka-hs/"},
+"南丹":{s:"千代川駅",l:"JR嵯峨野線",w:"約13分",b:null,u:"https://www.kyoto-be.ne.jp/nantan-hs/"},
+"園部":{s:"園部駅",l:"JR嵯峨野線",w:"約20分",b:"京阪京都交通バス「園高前」下車",u:"https://www.kyoto-be.ne.jp/sonobe-hs/"},
+"須知":{s:"園部駅",l:"JR嵯峨野線",w:null,b:"中京交通バス約20分「須知高校前」下車",u:"https://www.kyoto-be.ne.jp/syuuchi-hs/"},
+"綾部":{s:"綾部駅",l:"JR山陰本線・JR舞鶴線",w:"約16分",b:"京都交通バス「綾高前」下車",u:"https://www.kyoto-be.ne.jp/ayabe-hs/"},
+"福知山":{s:"福知山駅",l:"JR山陰本線・JR福知山線",w:"約33分",b:"路線バス「福高前」下車徒歩1分",u:"https://www.kyoto-be.ne.jp/fukuchiyama-hs/"},
+"東舞鶴":{s:"東舞鶴駅",l:"JR舞鶴線",w:null,b:"スクールバスあり",u:"https://www.kyoto-be.ne.jp/higashimaizuru-hs/mt/access.html"},
+"西舞鶴":{s:"西舞鶴駅",l:"JR舞鶴線・京都丹後鉄道",w:"約5分",b:"京都交通バス「西高前」下車徒歩約1分",u:"https://www.kyoto-be.ne.jp/nishimaizuru-hs/"},
+"大谷":{s:"東福寺駅",l:"JR奈良線・京阪本線",w:"約5分",b:"市バス「今熊野」下車徒歩2分",u:"https://www.otani.ed.jp/"},
+"華頂女子":{s:"東山駅",l:"京都市営地下鉄東西線",w:"約4分",b:"市バス「知恩院前」下車徒歩約2分",u:"https://www.kacho.ed.jp/access/"},
+"京都外大西":{s:"太秦天神川駅",l:"京都市営地下鉄東西線",w:"約10分",b:"市バス「京都外大前」下車徒歩約3分",u:"https://kgn.kufs.ac.jp/access/"},
+"京都光華":{s:"西京極駅",l:"阪急京都線",w:"約7分",b:"市バス「光華女子学園前」下車",u:"https://hs.koka.ac.jp/access/"},
+"京都産業大学附属":{s:"丹波口駅",l:"JR嵯峨野線",w:"約3分",b:null,u:"https://jsh.kyoto-su.ac.jp/about/access.html"},
+"京都女子":{s:"七条駅",l:"京阪本線",w:"約15分",b:"プリンセスラインバス「京都女子中高前」下車",u:"https://kgs.ed.jp/access"},
+"京都精華学園":{s:"出町柳駅",l:"京阪鴨東線・叡山電鉄",w:"約5分",b:null,u:"https://k-seika.ed.jp/access/"},
+"京都成章":{s:"桂川駅",l:"JR京都線",w:null,b:"京阪京都交通バス「京都成章高校前」下車",u:"https://kyoto-seisho.ed.jp/access/"},
+"京都聖母学院":{s:"藤森駅",l:"京阪本線",w:"約1分半",b:null,u:"https://www.seibo.ed.jp/kyoto-hs/"},
+"京都先端科学大学附属":{s:"妙心寺駅",l:"京福北野線",w:"約3分",b:null,u:"https://www.js.kuas.ac.jp/access/"},
+"京都橘":{s:"桃山南口駅",l:"京阪宇治線",w:"約5分",b:null,u:"https://www.tachibana-hs.jp/access/"},
+"京都文教":{s:"東山駅",l:"京都市営地下鉄東西線",w:"約3分",b:null,u:"https://www.kbu.ac.jp/kbghs/access/"},
+"同志社":{s:"国際会館駅",l:"京都市営地下鉄烏丸線",w:"約1分",b:null,u:"https://js.doshisha.ac.jp/high/access/"},
+"同志社女子":{s:"今出川駅",l:"京都市営地下鉄烏丸線",w:"約7分",b:"市バス「同志社前」下車徒歩1分",u:"https://www.girls.doshisha.ac.jp/access/"},
+"ノートルダム女学院":{s:"蹴上駅",l:"京都市営地下鉄東西線",w:"約20分",b:"スクールバスあり",u:"https://www.notredame-jogakuin.ed.jp/access/"},
+"花園":{s:"JR花園駅",l:"JR嵯峨野線",w:"約7分",b:null,u:"https://www.kyoto-hanazono-h.ed.jp/access/"},
+"東山":{s:"地下鉄蹴上駅",l:"京都市営地下鉄東西線",w:"約10分",b:"市バス「南禅寺・永観堂道」下車徒歩5分",u:"https://www.higashiyama.ed.jp/access/"},
+"平安女学院":{s:"地下鉄丸太町駅",l:"京都市営地下鉄烏丸線",w:"約3分",b:null,u:"https://jh.heian.ac.jp/access"},
+"洛星":{s:"北野白梅町駅",l:"京福電鉄北野線",w:"約3分",b:"市バス「北野白梅町」下車",u:"https://www.rakusei.ac.jp/introduction/access"},
+"洛南":{s:"近鉄東寺駅",l:"近鉄京都線",w:"約10分",b:"市バス207系統「東寺東門」下車徒歩3分",u:"https://www.rakunan-h.ed.jp/gakuen/access/"},
+"龍谷大学付属平安":{s:"JR梅小路京都西駅",l:"JR嵯峨野線",w:"約7分",b:null,u:"https://www.heian.ed.jp/about/access.php"},
+"立命館宇治":{s:"近鉄大久保駅",l:"近鉄京都線",w:null,b:"京都京阪バス「立命館宇治高校」下車約10分",u:"https://www.ritsumei.ac.jp/uji/"},
+"京都翔英":{s:"京阪宇治駅",l:"京阪宇治線",w:"約5分",b:null,u:"http://www.kyoto-shoei.ac.jp/"},
+"京都西山":{s:"阪急東向日駅",l:"阪急京都線",w:"約5分",b:"スクールバスあり",u:"https://kyotonishiyama.ed.jp/access/"},
+"立命館":{s:"阪急西山天王山駅",l:"阪急京都線",w:"約8分",b:"京阪淀駅よりバス約12分",u:"https://www.ritsumei.ac.jp/nkc/"},
+"同志社国際":{s:"JR同志社前駅",l:"JR学研都市線",w:"約10分",b:"奈良交通バス「同志社国際中・高校」下車",u:"https://www.intnl.doshisha.ac.jp/"},
+"京都廣学館":{s:"JR下狛駅",l:"JR学研都市線",w:"約3分",b:null,u:"https://kyoto-kogakkan.mkg.ac.jp/access/"},
+"京都聖カタリナ":{s:"JR園部駅",l:"JR嵯峨野線",w:"約13分",b:null,u:"https://www.catalina-kyoto.ed.jp/about/access/"},
+"京都共栄学園":{s:"JR福知山駅",l:"JR山陰本線・JR舞鶴線",w:"約7分",b:null,u:"https://www.kyoei.ed.jp/overview/access/"},
+"福知山成美":{s:"福知山駅",l:"JR山陰本線",w:"約25分",b:"京都交通バス「成美高校前」下車",u:"https://www.seibi-hs.jp/guide/access.html"},
+"日星":{s:"西舞鶴駅",l:"JR舞鶴線",w:"約19分",b:"京都交通バス「税務署前」下車徒歩3分",u:"https://www.nisseihs.ed.jp/"},
+"京都暁星":{s:"宮津駅",l:"京都丹後鉄道",w:"約30分",b:"丹海バス「暁星高校前」下車",u:"https://kghs.ed.jp/"},
+"京都国際":{s:"東福寺駅",l:"JR奈良線・京阪本線",w:"約18分",b:null,u:"https://kyoto-kokusai.ed.jp/jp/info"},
+"京都明徳":{s:"桂駅",l:"阪急京都本線",w:null,b:"市バス「京都明徳高校前」下車",u:"https://www.meitoku.ac.jp/access"},
+"京都両洋":{s:"西大路三条駅",l:"京福電気鉄道",w:"約2分",b:null,u:"https://www.kyoto-ryoyo.ed.jp/access/"},
+"洛陽総合":{s:"円町駅",l:"JR嵯峨野線",w:"約2分",b:null,u:"https://www.rakuyo.ed.jp/access/"},
+"一燈園":{s:"四宮駅",l:"京阪京津線",w:"約10分",b:null,u:"http://www.ittoen.ed.jp/"},
+"奈良":{s:"高の原駅",l:"近鉄京都線",w:"徒歩約7分",b:null,u:"https://nara-hs.e-net.nara.jp/"},
+"畝傍":{s:"畝傍駅",l:"JR桜井線・近鉄橿原線(八木西口駅)",w:"畝傍駅から徒歩約7分",b:null,u:"https://unebi-hs.e-net.nara.jp/"},
+"高円芸術":{s:"京終駅",l:"JR桜井線",w:"約20分",b:"奈良交通バス「白毫寺」下車南へ約300m",u:"https://takamado-art-hs.e-net.nara.jp/"},
+"奈良商工":{s:"西ノ京駅",l:"近鉄橿原線",w:"約16分",b:"奈良交通バス「柏木町南」下車徒歩約350m",u:"https://narashoko-hs.e-net.nara.jp/"},
+"山辺":{s:"天理駅",l:"近鉄天理線",w:null,b:"奈良交通バス「山辺高校」下車約40分",u:"https://yamabe-hs.e-net.nara.jp/"},
+"国際":{s:"学研奈良登美ヶ丘駅",l:"近鉄けいはんな線",w:"約17分",b:"奈良交通バス「県立国際高校」下車徒歩約2分",u:"https://kokusai-hs.e-net.nara.jp/"},
+"一条":{s:"新大宮駅",l:"近鉄奈良線",w:"約12分",b:"奈良交通「一条高校前」下車徒歩約3分",u:"https://www.ichijo.ed.jp/"},
+"県立大学附属":{s:"西ノ京駅",l:"近鉄橿原線",w:"約27分",b:"バス「六条西三丁目」下車",u:"https://shs.narapu.ac.jp/guide/access/"},
+"高田":{s:"高田市駅",l:"近鉄南大阪線",w:"約4分",b:null,u:"https://takada-hs.e-net.nara.jp/"},
+"高田商業":{s:"松塚駅",l:"近鉄大阪線",w:"約12分",b:null,u:"https://takasho.ed.jp/access/"},
+"郡山":{s:"近鉄郡山駅",l:"近鉄橿原線",w:"北へ約5分",b:null,u:"https://koriyama-hs.e-net.nara.jp/"},
+"大和中央":{s:"筒井駅",l:"近鉄橿原線",w:"約14分",b:null,u:"https://yamatochuo-hs.e-net.nara.jp/"},
+"生駒":{s:"一分駅",l:"近鉄生駒線",w:"約10分",b:null,u:"https://ikoma-hs.e-net.nara.jp/"},
+"香芝":{s:"五位堂駅",l:"近鉄大阪線",w:"約15〜20分",b:"奈良交通「香芝高校」下車徒歩約2分",u:"https://kashiba-hs.e-net.nara.jp/"},
+"王寺工業":{s:"王寺駅",l:"JR大和路線・近鉄生駒線",w:"約11分",b:null,u:"https://oji-t-hs.e-net.nara.jp/"},
+"大和広陵":{s:"但馬駅",l:"近鉄田原本線",w:"約13分",b:null,u:"https://yamatokoryo-hs.e-net.nara.jp/"},
+"西和清陵":{s:"信貴山下駅",l:"近鉄生駒線",w:"約10〜15分",b:"奈良交通「西和清陵高校」下車徒歩約2分",u:"https://seiwaseiryo-hs.e-net.nara.jp/"},
+"法隆寺国際":{s:"法隆寺駅",l:"JR大和路線",w:"約19分",b:"エヌシーバス「法隆寺国際高校」下車",u:"https://horyuji-hs.e-net.nara.jp/"},
+"磯城野":{s:"田原本駅",l:"近鉄橿原線",w:"約4分",b:null,u:"https://shikino-hs.e-net.nara.jp/"},
+"橿原":{s:"橿原神宮西口駅",l:"近鉄南大阪線",w:"約17分",b:"橿原神宮前駅から奈良交通バス利用",u:"https://kashihara-hs.e-net.nara.jp/"},
+"桜井":{s:"桜井駅",l:"JR万葉まほろば線・近鉄大阪線",w:"約8分",b:null,u:"https://sakurai-hs.e-net.nara.jp/"},
+"五條":{s:"五条駅",l:"JR和歌山線",w:"約25分",b:"奈良交通バス「五條高校」下車",u:"https://gojo-hs.e-net.nara.jp/"},
+"高取国際":{s:"飛鳥駅",l:"近鉄吉野線",w:"約15分",b:"奈良交通バス「増屋橋」下車徒歩約4分",u:"https://takatorikokusai-hs.e-net.nara.jp/"},
+"十津川":{s:null,l:null,w:null,b:"奈良交通 八木新宮線「込の上」下車約4時間",u:"https://totsukawa-hs.e-net.nara.jp/"},
+"添上":{s:"櫟本駅",l:"JR桜井線",w:"約10分",b:null,u:"https://soekami-hs.e-net.nara.jp/"},
+"二階堂":{s:"二階堂駅",l:"近鉄天理線",w:"約15分",b:null,u:"https://nikaido-hs.e-net.nara.jp/"},
+"奈良北":{s:"学研北生駒駅",l:"近鉄けいはんな線",w:"約18分",b:"近鉄学園前駅から奈良交通バス約15分",u:"https://narakita-hs.e-net.nara.jp/"},
+"御所実業":{s:"玉手駅",l:"JR和歌山線",w:"約7分",b:null,u:"https://gosejitsugyo-hs.e-net.nara.jp/"},
+"青翔":{s:"近鉄御所駅",l:"近鉄御所線",w:"約8分",b:null,u:"https://seisho-hs.e-net.nara.jp/"},
+"育英西":{s:"富雄駅",l:"近鉄奈良線",w:"約20分",b:"奈良交通バス約7分「二名」下車徒歩約7分",u:"https://www.ikuei.ed.jp/ikunishi/about/access/"},
+"帝塚山":{s:"学園前駅",l:"近鉄奈良線",w:"徒歩1分（南口直結）",b:null,u:"https://www.tezukayama-h.ed.jp/access/"},
+"東大寺学園":{s:"高の原駅",l:"近鉄京都線",w:"徒歩20分",b:"奈良交通バス（急行）約6分",u:"https://www.tdj.ac.jp/access.html"},
+"奈良育英":{s:"近鉄奈良駅",l:"近鉄奈良線",w:"約10分",b:"奈良交通バス「育英学園」下車",u:"https://www.ikuei.ed.jp/ikuei-jh/about/access/"},
+"奈良学園登美ヶ丘":{s:"学研奈良登美ヶ丘駅",l:"近鉄けいはんな線",w:"約8分",b:null,u:"https://www.naragakuen.jp/tomigaoka/"},
+"奈良女子":{s:"JR奈良駅",l:"JR関西本線",w:"約5分",b:"奈良交通「白藤学園」下車徒歩約1分",u:"https://shirafuji.ac.jp/"},
+"奈良大学附属":{s:"平城駅",l:"近鉄京都線",w:"約15分",b:null,u:"https://nara-u-h.ed.jp/access/"},
+"奈良文化":{s:"高田市駅",l:"近鉄南大阪線",w:"約15分",b:"バス「奈良文化高校前」下車",u:"https://www.narabunka.ed.jp/access/"},
+"奈良学園":{s:"大和小泉駅",l:"JR大和路線",w:null,b:"スクールバス約15分",u:"https://www.naragakuen.ed.jp/access/"},
+"天理":{s:"天理駅",l:"近鉄天理線・JR桜井線",w:"約18分",b:null,u:"https://www.tenri-h.ed.jp/1bu/access/"},
+"橿原学院":{s:"橿原神宮西口駅",l:"近鉄南大阪線",w:"約5分",b:null,u:"https://www.kashigaku.ed.jp/"},
+"関西中央":{s:"桜井駅",l:"近鉄大阪線・JR桜井線",w:"約15分",b:null,u:"https://www.kch.ed.jp/introduction/access/"},
+"智辯学園":{s:"五条駅",l:"JR和歌山線",w:"約20分",b:"スクールバスあり",u:"https://www.chiben.ac.jp/gojo/access/"},
+"智辯学園奈良カレッジ":{s:"関屋駅",l:"近鉄大阪線",w:"約12分",b:"スクールバスあり",u:"https://www.chiben.ac.jp/naracollege/access/"},
+"西大和学園":{s:"大輪田駅",l:"近鉄田原本線",w:"約8分",b:"王寺駅南口バス「星和台一丁目」下車",u:"https://www.nishiyamato.ed.jp/access/"},
+"石山":{s:"石山寺駅",l:"京阪石山坂本線",w:"約8分",b:"京阪バス「石山高校前」下車徒歩2分",u:"https://www.ishiyama-h.shiga-ec.ed.jp/"},
+"大津":{s:"膳所駅",l:"JR琵琶湖線・京阪",w:"約3分",b:null,u:"https://www.ohtsu-h.shiga-ec.ed.jp/"},
+"大津商業":{s:"大津市役所前駅",l:"京阪石山坂本線",w:"約3分",b:null,u:"http://www.daisho-h.shiga-ec.ed.jp/"},
+"堅田":{s:"堅田駅",l:"JR湖西線",w:"約15分",b:null,u:"http://www.katata-h.shiga-ec.ed.jp/"},
+"北大津":{s:"おごと温泉駅",l:"JR湖西線",w:"約10〜15分",b:null,u:"https://www.kitaotsu-h.shiga-ec.ed.jp/"},
+"瀬田工業":{s:"唐橋前駅",l:"京阪石山坂本線",w:"約8分",b:null,u:"http://www.setatech-h.shiga-ec.ed.jp/"},
+"膳所":{s:"膳所本町駅",l:"京阪石山坂本線",w:"約2分",b:null,u:"https://www.zeze-h.shiga-ec.ed.jp/"},
+"東大津":{s:"瀬田駅",l:"JR琵琶湖線",w:null,b:"帝産バス「東大津高校前」下車約10分",u:"https://www.higashiohtsu-h.shiga-ec.ed.jp/"},
+"河瀬":{s:"河瀬駅",l:"JR琵琶湖線",w:"約5〜7分",b:null,u:"https://www.kawase-h.shiga-ec.ed.jp/"},
+"彦根工業":{s:"河瀬駅",l:"JR琵琶湖線",w:"約10分",b:null,u:"http://www.genkou-h.shiga-ec.ed.jp/"},
+"彦根翔西館":{s:"彦根口駅",l:"近江鉄道本線",w:"約3分",b:null,u:"http://www.shoseikan-h.shiga-ec.ed.jp/"},
+"彦根東":{s:"彦根駅",l:"JR琵琶湖線",w:"約15分",b:null,u:"https://www.hikonehg-h.shiga-ec.ed.jp/"},
+"長浜北":{s:"長浜駅",l:"JR北陸本線",w:"約18分",b:"湖国バス「長浜北高校前」下車徒歩4分",u:"https://www.nagahamakita-h.shiga-ec.ed.jp/"},
+"長浜北星":{s:"長浜駅",l:"JR琵琶湖線",w:"約15分",b:"湖国バス「長浜北星高校前」下車",u:"https://www.hokusei-h.shiga-ec.ed.jp/"},
+"虎姫":{s:"虎姫駅",l:"JR北陸本線",w:"約15分",b:null,u:"https://www.torahime-h.shiga-ec.ed.jp/"},
+"伊香":{s:"木ノ本駅",l:"JR北陸本線",w:"約10分",b:null,u:"https://www.ika-h.shiga-ec.ed.jp/"},
+"八幡(滋賀)":{s:"近江八幡駅",l:"JR琵琶湖線",w:"約15分",b:"近江鉄道バス「八幡高校前」下車徒歩約5分",u:"https://www.hachi-h.shiga-ec.ed.jp/"},
+"草津":{s:"草津駅",l:"JR琵琶湖線",w:"約15分",b:null,u:"https://www.kusatsu-h.shiga-ec.ed.jp/"},
+"草津東":{s:"草津駅",l:"JR琵琶湖線",w:"約18分",b:"くるっとバス「草津東高校」下車",u:"https://www.kusahiga-h.shiga-ec.ed.jp/"},
+"守山":{s:"守山駅",l:"JR琵琶湖線",w:"約15分",b:"近江バス「守山高校北口」下車",u:"https://www.moriyama-h.shiga-ec.ed.jp/"},
+"守山北":{s:"守山駅",l:"JR琵琶湖線",w:null,b:"近江鉄道バス「守山北高前」下車",u:"http://www.morikita-h.shiga-ec.ed.jp/"},
+"国際情報":{s:"手原駅",l:"JR草津線",w:null,b:"帝産バス「東宝ランド」下車徒歩約500m",u:"https://www.kokujo-h.shiga-ec.ed.jp/"},
+"栗東":{s:"手原駅",l:"JR草津線",w:"約10〜15分",b:null,u:"https://www.ritto-h.shiga-ec.ed.jp/"},
+"甲南(滋賀)":{s:"寺庄駅",l:"JR草津線",w:"約1分",b:null,u:"https://www.kohnan-h.shiga-ec.ed.jp/"},
+"信楽":{s:"信楽駅",l:"信楽高原鉄道",w:"約15分",b:null,u:"https://www.shigaraki-h.shiga-ec.ed.jp/"},
+"水口":{s:"水口城南駅",l:"近江鉄道本線",w:"約4分",b:null,u:"http://www.minakuchi-h.shiga-ec.ed.jp/"},
+"水口東":{s:"水口駅",l:"近江鉄道",w:"約15分",b:"甲賀市コミュニティバス「水口東高」下車",u:"https://www.e-minakuchi-h.shiga-ec.ed.jp/"},
+"野洲":{s:"野洲駅",l:"JR琵琶湖線",w:"約15分",b:null,u:"https://www.yasu-h.shiga-ec.ed.jp/"},
+"石部":{s:"石部駅",l:"JR草津線",w:"約34分",b:"湖南市コミバス「石部高校」下車",u:"https://www.ishibe-h.shiga-ec.ed.jp/"},
+"甲西":{s:"甲西駅",l:"JR草津線",w:"約15分",b:null,u:"https://www.kosei-h.shiga-ec.ed.jp/"},
+"安曇川":{s:"安曇川駅",l:"JR湖西線",w:"約12分",b:null,u:"https://www.ado-h.shiga-ec.ed.jp/"},
+"高島":{s:"近江今津駅",l:"JR湖西線",w:"約15分",b:null,u:"https://www.takashima-h.shiga-ec.ed.jp/"},
+"能登川":{s:"能登川駅",l:"JR琵琶湖線",w:"約9分",b:null,u:"http://www.notogawa-h.shiga-ec.ed.jp/"},
+"八日市":{s:"八日市駅",l:"近江鉄道",w:"約10分",b:null,u:"https://www.youkaichi-h.shiga-ec.ed.jp/"},
+"八日市南":{s:"八日市駅",l:"近江鉄道",w:"約16分",b:"近江鉄道バス「八日市南高校」下車",u:"http://www.yokaichiminami-h.shiga-ec.ed.jp/"},
+"伊吹":{s:"近江長岡駅",l:"JR東海道本線",w:null,b:"湖国バス「伊吹高校」下車徒歩1分",u:"https://www.ibuki-h.shiga-ec.ed.jp/"},
+"米原":{s:"米原駅",l:"JR東海道本線・JR北陸本線",w:"約15分",b:"湖国バス「米原高校」下車徒歩約4分",u:"https://www.maibara-h.shiga-ec.ed.jp/"},
+"日野":{s:"日野駅",l:"近江鉄道本線",w:"約20分",b:"近江鉄道バス「高校前」下車",u:"https://www.hino-h.shiga-ec.ed.jp/"},
+"愛知":{s:"愛知川駅",l:"近江鉄道本線",w:"約10分",b:null,u:"https://www.echiko-h.shiga-ec.ed.jp/"},
+"玉川":{s:"南草津駅",l:"JR琵琶湖線",w:"約25分",b:"帝産バス282系統「玉川高校」下車",u:"https://www.tamagawa-h.shiga-ec.ed.jp/"},
+"綾羽":{s:"草津駅",l:"JR琵琶湖線",w:"約7分",b:null,u:"https://www.ayaha.ed.jp/access/"},
+"近江":{s:"彦根駅",l:"JR琵琶湖線",w:"約18分",b:"近江鉄道バス「近江高校前」下車",u:"https://www.ohmi-h.ed.jp/"},
+"近江兄弟社":{s:"近江八幡駅",l:"JR琵琶湖線",w:"約30分",b:"近江バス約10分「ヴォーリズ学園前」下車",u:"https://www.vories.ac.jp/access/"},
+"光泉カトリック":{s:"南草津駅",l:"JR琵琶湖線",w:"約7分",b:null,u:"https://www.kousen.ed.jp/high/"},
+"滋賀学園":{s:"河辺の森駅",l:"近江鉄道本線",w:"約18分",b:"スクールバスあり",u:"https://www.shigagakuen.ed.jp/about/access"},
+"滋賀短期大学附属":{s:"大津駅",l:"JR琵琶湖線",w:"約12分",b:null,u:"https://www.sumire.ac.jp/highschool/"},
+"比叡山":{s:"坂本比叡山口駅",l:"京阪石坂線",w:"約10分",b:null,u:"https://hieizan.ed.jp/hieizan-jh-hs/about/access/"},
+"彦根総合":{s:"ひこね芹川駅",l:"近江鉄道本線",w:"約4分",b:null,u:"https://hikosou.jp/access/"},
+"立命館守山":{s:"守山駅",l:"JR琵琶湖線",w:null,b:"直行バス約10分「立命館守山中学・高校前」下車",u:"https://www.mrc.ritsumei.ac.jp/life/where/"},
+"北稜":{s:"木野駅",l:"叡山電鉄鞍馬線",w:"約3分",b:"京都バス40系統「北稜高校前」下車",u:"https://www.kyoto-be.ne.jp/hokuryou-hs/mt/access/"},
+"朱雀":{s:"二条駅",l:"JR嵯峨野線・京都市営地下鉄東西線",w:"約5分",b:"市バス「千本旧二条」下車徒歩約5分",u:"https://www.kyoto-be.ne.jp/suzaku-hs/mt/contact/access/"},
+"堀川音楽":{s:"二条城前駅",l:"京都市営地下鉄東西線",w:"約3分",b:"市バス「堀川御池」下車徒歩1分",u:"https://horion.ed.jp/"},
+"洛東":{s:"山科駅",l:"JR琵琶湖線・地下鉄東西線",w:"約7分",b:null,u:"https://www.kyoto-be.ne.jp/rakutou-hs/mt/contact/access/"},
+"日吉ヶ丘":{s:"東福寺駅",l:"JR奈良線・京阪本線",w:"約10分",b:"市バス「東福寺」下車徒歩約6分",u:"https://www.edu.city.kyoto.jp/hp/hiyoshi/"},
+"美術工芸":{s:"七条駅",l:"京阪本線",w:"約5分",b:"市バス「塩小路高倉」下車すぐ",u:"https://cms.edu.city.kyoto.jp/weblog/index.php?id=300407"},
+"鳥羽":{s:"東寺駅",l:"近鉄京都線",w:"約8分",b:"市バス202・208系統「羅城門」下車すぐ",u:"https://www.kyoto-be.ne.jp/toba-hs/mt/About_Us/access/"},
+"開建":{s:"西大路駅",l:"JR京都線",w:"約5分",b:null,u:"https://cms.edu.city.kyoto.jp/300903/weblog"},
+"清明":{s:"北大路駅",l:"京都市営地下鉄烏丸線",w:"約7分",b:null,u:"https://www.kyoto-be.ne.jp/seimei-hs/"},
+"峰山":{s:"峰山駅",l:"京都丹後鉄道宮豊線",w:"約25分",b:"丹後海陸交通バス「峰山」下車徒歩約3分",u:"https://www.kyoto-be.ne.jp/mineyama-hs/mt/contact/access/"},
+"海洋":{s:"栗田駅",l:"京都丹後鉄道宮舞線",w:"約10分",b:"丹後海陸交通バス「学校前」下車徒歩約2分",u:"https://www.kyoto-be.ne.jp/kaiyou-hs/"},
+"大江":{s:"大江高校前駅",l:"京都丹後鉄道宮福線",w:"約8分",b:null,u:"https://www.kyoto-be.ne.jp/ooe-hs/"},
+"河南":{s:"富田林西口駅",l:"近鉄長野線",w:null,b:"金剛バス「河南高校前」下車",u:"https://www.osaka-c.ed.jp/kanan/"},
+"牧野":{s:"牧野駅",l:"京阪本線",w:"約10分",b:null,u:"https://www2.osaka-c.ed.jp/makino/"},
+"大津清陵":{s:"膳所駅",l:"JR琵琶湖線",w:"約5分",b:null,u:"https://www.otsuseiryo-h.shiga-ec.ed.jp/"},
+"長浜農業":{s:"長浜駅",l:"JR北陸本線",w:"約20分",b:null,u:"http://www.nagano-h.shiga-ec.ed.jp/"},
+"八幡工業":{s:"近江八幡駅",l:"JR琵琶湖線",w:"約20分",b:null,u:"http://www.hachikou-h.shiga-ec.ed.jp/"},
+"八幡商業":{s:"近江八幡駅",l:"JR琵琶湖線",w:"約18分",b:null,u:"http://www.hachisho-h.shiga-ec.ed.jp/"},
+"湖南農業":{s:"草津駅",l:"JR琵琶湖線",w:null,b:"帝産バス「湖南農業高校前」下車",u:"http://www.konano-h.shiga-ec.ed.jp/"},
+"宮津天橋":{s:"宮津駅",l:"京都丹後鉄道",w:"約8分",b:null,u:"https://www.kyoto-be.ne.jp/miyazu-hs/"},
+"丹後緑風(網野)":{s:"網野駅",l:"京都丹後鉄道宮豊線",w:"約12分",b:null,u:"https://www.kyoto-be.ne.jp/amino-hs/"},
+"丹後緑風(久美浜)":{s:"久美浜駅",l:"京都丹後鉄道宮豊線",w:"約10分",b:null,u:"https://www.kyoto-be.ne.jp/kumihama-hs/"},
+"清新":{s:"峰山駅",l:"京都丹後鉄道宮豊線",w:"約15分",b:null,u:"https://www.kyoto-be.ne.jp/seishin-hs/"},
+"宮津天橋(加悦谷)":{s:"与謝野駅",l:"京都丹後鉄道宮豊線",w:"約10分",b:null,u:"https://www.kyoto-be.ne.jp/kayatani-hs/"},
+"北桑田":{s:"JR嵯峨嵐山駅",l:"JR嵯峨野線",w:null,b:"京北ふるさとバス「周山」下車徒歩5分",u:"https://www.kyoto-be.ne.jp/kitakuwada-hs/"},
+"農芸(京都)":{s:"園部駅",l:"JR嵯峨野線",w:null,b:"京阪京都交通バス「農芸高校前」下車",u:"https://www.kyoto-be.ne.jp/nougei-hs/"},
+"工業(京都)":{s:"福知山駅",l:"JR山陰本線",w:"約20分",b:null,u:"https://www.kyoto-be.ne.jp/kogyo-hs/"},
+"福知山淑徳":{s:"福知山駅",l:"JR山陰本線",w:"約15分",b:null,u:"https://shukutoku.ed.jp/"},
+"京都芸術":{s:"黄檗駅",l:"JR奈良線",w:"約10分",b:null,u:"https://senko.ed.jp/"},
+"商業(奈良)":{s:"桜井駅",l:"JR万葉まほろば線・近鉄大阪線",w:"約15分",b:null,u:"https://narashogyo-hs.e-net.nara.jp/"},
+"宇陀":{s:"榛原駅",l:"近鉄大阪線",w:"約10分",b:null,u:"https://uda-hs.e-net.nara.jp/"},
+"奈良南(大淀)":{s:"下市口駅",l:"近鉄吉野線",w:"約15分",b:null,u:"https://naranominami-hs.e-net.nara.jp/"},
+"奈良南(吉野)":{s:"大和上市駅",l:"近鉄吉野線",w:"約10分",b:null,u:"https://naranominami-hs.e-net.nara.jp/"},
+"大阪ビジネスフロンティア":{s:"桃谷",l:"JR大阪環状線 徒歩7分",u:"https://obf-hs.com/"},
+"今宮":{s:"大国町",l:"Osaka Metro御堂筋線・四つ橋線 徒歩5分",u:"https://www.osaka-c.ed.jp/imamiya/"},
+"淀商業":{s:"御幣島",l:"JR東西線 徒歩4分",u:"https://www3.osaka-c.ed.jp/yodo-b/"},
+"柴島":{s:"柴島",l:"阪急千里線 徒歩2分",u:"https://www.osaka-c.ed.jp/kunijima/"},
+"淀川清流":{s:"上新庄",l:"阪急京都線 徒歩13分",u:"https://www.osaka-c.ed.jp/yodogawaseiryu/"},
+"大阪わかば":{s:"北巽",l:"Osaka Metro千日前線 徒歩7分",u:"https://www2.osaka-c.ed.jp/osakawakaba/"},
+"生野工業":{s:"北巽",l:"Osaka Metro千日前線 徒歩10分",u:"https://www3.osaka-c.ed.jp/ikuno-t/"},
+"旭":{s:"関目高殿",l:"Osaka Metro谷町線 徒歩7分",u:"https://www.osaka-c.ed.jp/asahi/"},
+"淀川工科":{s:"守口",l:"Osaka Metro谷町線 徒歩6分",u:"https://www.osaka-c.ed.jp/yodogawa-t/"},
+"成城":{s:"深江橋",l:"Osaka Metro中央線 徒歩12分",u:"https://www2.osaka-c.ed.jp/seijo-t/"},
+"阿倍野":{s:"昭和町",l:"Osaka Metro御堂筋線 徒歩4分",u:"https://www.abeno-hs.com/"},
+"工芸":{s:"文の里",l:"Osaka Metro谷町線 徒歩5分",u:"https://kogei-osaka.ed.jp/"},
+"阪南":{s:"あびこ",l:"Osaka Metro御堂筋線 徒歩10分",u:"https://www2.osaka-c.ed.jp/hannan/"},
+"今宮工科":{s:"大国町",l:"Osaka Metro御堂筋線・四つ橋線 徒歩7分",u:"https://www2.osaka-c.ed.jp/imamiya-t/"},
+"西成":{s:"津守",l:"南海汐見橋線 徒歩2分",u:"https://www.osaka-c.ed.jp/nishinari/"},
+"東淀川":{s:"新大阪",l:"Osaka Metro御堂筋線 徒歩5分",u:"https://www2.osaka-c.ed.jp/higashiyodogawa/"},
+"東淀工業":{s:"加島",l:"JR東西線 徒歩10分",u:"https://www3.osaka-c.ed.jp/higashiyodo-t/"},
+"汎愛":{s:"放出",l:"JR学研都市線・おおさか東線 徒歩15分",u:"https://www3.osaka-c.ed.jp/han-ai/"},
+"鶴見商業":{s:"新森古市",l:"Osaka Metro谷町線 徒歩15分",u:"https://www3.osaka-c.ed.jp/tsurumi-b/"},
+"港南造形":{s:"南港口",l:"ニュートラム南港ポートタウン線 徒歩5分",u:"https://konan-zokei.jp/"},
+"住吉商業":{s:"住ノ江",l:"南海本線 徒歩10分",u:"https://www3.osaka-c.ed.jp/sumiyoshi-b/"},
+"水都国際":{s:"トレードセンター前",l:"ニュートラム南港ポートタウン線 徒歩8分",u:"https://osaka-city-ib.jp/senior/"},
+"東住吉総合":{s:"喜連瓜破",l:"Osaka Metro谷町線 徒歩13分",u:"https://higashi-sumiyoshi-sougou.ed.jp/"},
+"長吉":{s:"長原",l:"Osaka Metro谷町線 徒歩12分",u:"https://www2.osaka-c.ed.jp/nagayoshi/"},
+"桜和":{s:"大阪天満宮",l:"JR東西線 徒歩8分",u:"https://www3.osaka-c.ed.jp/owa/"},
+"堺(市立)":{s:"三国ヶ丘",l:"JR阪和線・南海高野線 徒歩6分",u:"https://kyoiku.sakai.ed.jp/sakai-hs/"},
+"東百舌鳥":{s:"深井",l:"泉北高速鉄道 バス利用",u:"https://www.osaka-c.ed.jp/higashimozu/"},
+"堺上":{s:"鳳",l:"JR阪和線 バス利用",u:"https://www2.osaka-c.ed.jp/sakaikami/"},
+"福泉":{s:"栂・美木多",l:"泉北高速鉄道＋南海バス「福泉高校前」",u:"https://www2.osaka-c.ed.jp/fukuizumi/"},
+"堺西":{s:"栂・美木多",l:"泉北高速鉄道 徒歩16分",u:"https://www.osaka-c.ed.jp/sakainishi/"},
+"堺東":{s:"泉ヶ丘",l:"泉北高速鉄道＋南海バス「堺東高校前」",u:"https://sakai-higashi.ed.jp/"},
+"成美":{s:"光明池",l:"泉北高速鉄道＋南海バス「城山台4丁」",u:"https://www.osaka-c.ed.jp/seibi/"},
+"久米田":{s:"下松",l:"JR阪和線 徒歩8分",u:"https://www2.osaka-c.ed.jp/kumeda/"},
+"産業(岸和田)":{s:"下松",l:"JR阪和線 徒歩10分",u:"https://www.kishisan-h.ed.jp/zen/zentop1.html"},
+"桜塚":{s:"岡町",l:"阪急宝塚線 徒歩10分",u:"https://sakurazuka.ed.jp/"},
+"豊島":{s:"箕面船場阪大前",l:"北大阪急行線 徒歩9分",u:"https://teshima-hs.ed.jp/"},
+"刀根山":{s:"蛍池",l:"阪急宝塚線・大阪モノレール 徒歩8分",u:"https://www.osaka-c.ed.jp/toneyama/"},
+"千里青雲":{s:"千里中央",l:"北大阪急行線・大阪モノレール 徒歩16分",u:"https://www.osaka-c.ed.jp/senriseiun/"},
+"渋谷":{s:"石橋阪大前",l:"阪急宝塚線＋阪急バス利用",u:"https://www.osaka-c.ed.jp/shibutani/"},
+"園芸":{s:"石橋阪大前",l:"阪急宝塚線・箕面線 徒歩15分",u:"https://osaka-engei.ed.jp/"},
+"北千里":{s:"北千里",l:"阪急千里線 徒歩15分",u:"https://kitasenri.ed.jp/"},
+"吹田東":{s:"宇野辺",l:"大阪モノレール 徒歩15分",u:"https://www2.osaka-c.ed.jp/suitahigashi/"},
+"山田":{s:"万博記念公園",l:"大阪モノレール 徒歩10分",u:"https://www2.osaka-c.ed.jp/yamada/"},
+"芥川":{s:"摂津富田",l:"JR京都線＋高槻市バス「緑が丘」",u:"https://www2.osaka-c.ed.jp/akutagawa/"},
+"阿武野":{s:"摂津富田",l:"JR京都線＋高槻市バス「阿武野校前」",u:"https://www.osaka-c.ed.jp/abuno/"},
+"大冠":{s:"高槻市",l:"阪急京都線＋市バス「大塚」",u:"https://www2.osaka-c.ed.jp/ohkanmuri/"},
+"高槻北":{s:"高槻",l:"JR京都線＋市バス「古曽部台」",u:"https://www.osaka-c.ed.jp/takatsukikita/"},
+"貝塚南":{s:"和泉橋本",l:"JR阪和線 徒歩15分（水間鉄道 清児 徒歩10分）",u:"https://www.osaka-c.ed.jp/kaizukaminami/"},
+"芦間":{s:"守口",l:"Osaka Metro谷町線 徒歩5分",u:"https://www.osaka-c.ed.jp/ashima/"},
+"香里丘":{s:"光善寺",l:"京阪本線 徒歩14分",u:"https://www2.osaka-c.ed.jp/korigaoka/"},
+"長尾":{s:"長尾",l:"JR学研都市線＋京阪バス利用",u:"https://www.osaka-c.ed.jp/nagao/"},
+"枚方津田":{s:"藤阪",l:"JR学研都市線 徒歩5分",u:"https://www.osaka-c.ed.jp/hirakatatsuda/"},
+"枚方なぎさ":{s:"御殿山",l:"京阪本線 徒歩10分",u:"https://www.osaka-c.ed.jp/hirakatanagisa/"},
+"いちりつ":{s:"光善寺",l:"京阪本線 徒歩5分",u:"https://www3.osaka-c.ed.jp/ichiritsu/"},
+"茨木西":{s:"宇野辺",l:"大阪モノレール 徒歩9分",u:"https://www.osaka-c.ed.jp/ibarakinishi/"},
+"北摂つばさ":{s:"茨木",l:"JR京都線＋近鉄バス「北摂つばさ高校前」",u:"https://www2.osaka-c.ed.jp/hokusetsutsubasa/"},
+"茨木工科":{s:"茨木",l:"JR京都線 徒歩15分",u:"https://ibaraki-t.ed.jp/"},
+"福井":{s:"豊川",l:"大阪モノレール彩都線＋阪急バス「福井」",u:"https://osaka-fukui.ed.jp/"},
+"八尾翠翔":{s:"法善寺",l:"近鉄大阪線 徒歩10分",u:"https://www.osaka-c.ed.jp/yaosuisho/"},
+"山本":{s:"河内山本",l:"近鉄大阪線 徒歩12分",u:"https://yamamoto-shs.ed.jp/"},
+"八尾北":{s:"八尾",l:"近鉄大阪線 徒歩15分",u:"https://www.osaka-c.ed.jp/yaokita/"},
+"佐野":{s:"泉佐野",l:"南海本線 徒歩10分",u:"https://www2.osaka-c.ed.jp/sano/"},
+"日根野":{s:"日根野",l:"JR阪和線 徒歩12分",u:"https://www2.osaka-c.ed.jp/hineno/"},
+"佐野工科":{s:"泉佐野",l:"南海本線 徒歩6分",u:"https://www.osaka-c.ed.jp/sano-t/"},
+"金剛":{s:"金剛",l:"南海高野線＋南海バス「金剛高校前」",u:"https://www.osaka-c.ed.jp/kongo/"},
+"北かわち皐が丘":{s:"寝屋川市",l:"京阪本線＋京阪バス利用",u:"https://www2.osaka-c.ed.jp/kitakawachisatsukigaoka/"},
+"西寝屋川":{s:"寝屋川市",l:"京阪本線＋京阪バス利用",u:"https://nishineyagawa.ed.jp/"},
+"長野":{s:"千代田",l:"南海高野線 徒歩10分",u:"https://osaka-nagano.ed.jp/"},
+"大塚":{s:"恵我ノ荘",l:"近鉄南大阪線 徒歩17分",u:"https://www.otsuka.ed.jp/"},
+"野崎":{s:"野崎",l:"JR学研都市線 徒歩17分",u:"https://www2.osaka-c.ed.jp/nozaki/"},
+"緑風冠":{s:"野崎",l:"JR学研都市線 徒歩15分",u:"https://www.osaka-c.ed.jp/ryokufukan/"},
+"信太":{s:"北信太",l:"JR阪和線 徒歩9分",u:"https://www.osaka-c.ed.jp/shinoda/"},
+"伯太":{s:"和泉府中",l:"JR阪和線 徒歩13分",u:"https://www2.osaka-c.ed.jp/hakata/"},
+"和泉総合":{s:"信太山",l:"JR阪和線 徒歩7分",u:"https://www2.osaka-c.ed.jp/izumi-t/"},
+"箕面東":{s:"箕面萱野",l:"北大阪急行＋阪急バス利用",u:"https://www.osaka-c.ed.jp/minoohigashi/"},
+"懐風館":{s:"駒ヶ谷",l:"近鉄南大阪線 徒歩13分",u:"https://kaifukan-hs.jp/"},
+"門真西":{s:"古川橋",l:"京阪本線＋京阪バス利用",u:"https://www.osaka-c.ed.jp/kadomanishi/"},
+"高石":{s:"北助松",l:"南海本線 徒歩9分",u:"https://www2.osaka-c.ed.jp/takaishi/"},
+"藤井寺":{s:"高鷲",l:"近鉄南大阪線 徒歩19分",u:"https://www2.osaka-c.ed.jp/fujiidera/"},
+"藤井寺工科":{s:"藤井寺",l:"近鉄南大阪線 徒歩5分",u:"https://www.osaka-c.ed.jp/fujiidera-t/"},
+"花園(大阪)":{s:"東花園",l:"近鉄奈良線 徒歩7分",u:"https://www2.osaka-c.ed.jp/hanazono/"},
+"布施":{s:"八戸ノ里",l:"近鉄奈良線 徒歩3分",u:"https://www.osaka-c.ed.jp/fuse/"},
+"みどり清朋":{s:"東花園",l:"近鉄奈良線＋バス利用",u:"https://www.midoriseiho.jp/"},
+"城東工科":{s:"鴻池新田",l:"JR学研都市線 徒歩5分",u:"https://www.osaka-c.ed.jp/joto-t/"},
+"布施工科":{s:"八戸ノ里",l:"近鉄奈良線 徒歩15分",u:"https://fusekouka.sakura.ne.jp/"},
+"枚岡樟風":{s:"瓢箪山",l:"近鉄奈良線 徒歩13分",u:"https://www2.osaka-c.ed.jp/hiraokashofu/"},
+"布施北":{s:"荒本",l:"近鉄けいはんな線 徒歩13分",u:"https://www.osaka-c.ed.jp/fusekita/"},
+"日新(東大阪)":{s:"石切",l:"近鉄奈良線 徒歩13分",u:"https://nisshin-h.ed.jp/"},
+"りんくう翔南":{s:"樽井",l:"南海本線 徒歩9分",u:"https://www.osaka-c.ed.jp/rinkushonan/"},
+"狭山":{s:"金剛",l:"南海高野線 徒歩11分",u:"https://www.osaka-c.ed.jp/sayama/"},
+"能勢":{s:"山下",l:"能勢電鉄＋阪急バス利用",u:"https://nose-br.toyonaka-hs.ed.jp/"},
+"岬":{s:"みさき公園",l:"南海本線 徒歩16分",u:"https://www.osaka-c.ed.jp/misaki/"},
+"教育大附属天王寺":{s:"寺田町",l:"JR大阪環状線 徒歩2分",u:"https://f.osaka-kyoiku.ac.jp/tennoji-h/"},
+"教育大附属平野":{s:"平野",l:"Osaka Metro谷町線 徒歩5分",u:"https://www.hirano-h.oku.ed.jp/"},
+"教育大附属池田":{s:"池田",l:"阪急宝塚線 徒歩20分",u:"https://f.osaka-kyoiku.ac.jp/ikeda-h/"},
+"興國":{s:"寺田町",l:"JR大阪環状線 徒歩7分",u:"https://www.kokoku.ed.jp/"},
+"大阪夕陽丘学園":{s:"四天王寺前夕陽ヶ丘",l:"Osaka Metro谷町線 徒歩3分",u:"https://www.oyg.ed.jp/"},
+"好文学園女子":{s:"千船",l:"阪神本線 徒歩6分",u:"https://koubun.ed.jp/"},
+"大阪":{s:"相川",l:"阪急京都線 徒歩1分",u:"https://www.osakashs.ed.jp/"},
+"大阪成蹊女子":{s:"相川",l:"阪急京都線 徒歩5分",u:"https://high.osaka-seikei.jp/"},
+"プール学院":{s:"桃谷",l:"JR大阪環状線 徒歩5分",u:"https://poole.ed.jp/"},
+"金光藤蔭":{s:"小路",l:"Osaka Metro千日前線 徒歩6分",u:"https://www.konkoutouin.ed.jp/"},
+"大阪偕星学園":{s:"寺田町",l:"JR大阪環状線 徒歩10分",u:"https://www.osaka-kaisei.ac.jp/"},
+"常翔学園":{s:"千林大宮",l:"Osaka Metro谷町線 徒歩12分",u:"https://www.highs.josho.ac.jp/"},
+"大阪信愛学院":{s:"新森古市",l:"Osaka Metro今里筋線 徒歩5分",u:"https://high.osaka-shinai.ed.jp/"},
+"大谷(大阪)":{s:"阿倍野",l:"Osaka Metro谷町線 徒歩8分",u:"https://www.osk-ohtani.ed.jp/"},
+"明浄学院":{s:"文の里",l:"Osaka Metro谷町線 徒歩3分",u:"https://www.meijo.ed.jp/"},
+"あべの翔学":{s:"河堀口",l:"近鉄南大阪線 徒歩3分",u:"https://abeno-shogaku.ed.jp/"},
+"帝塚山学院":{s:"帝塚山",l:"南海高野線 徒歩1分",u:"https://www.tezukayama.ac.jp/cyu_kou/"},
+"清明学院":{s:"沢ノ町",l:"南海高野線 徒歩3分",u:"https://www.seimei.ed.jp/"},
+"建国":{s:"杉本町",l:"JR阪和線 徒歩8分",u:"https://keonguk.ac.jp/high_school/"},
+"城南学園":{s:"矢田",l:"近鉄南大阪線 徒歩8分",u:"https://www.jonan.ac.jp/senior/"},
+"英真学園":{s:"十三",l:"阪急各線 徒歩5分",u:"https://eishingakuen.ac.jp/"},
+"大阪金剛インターナショナル":{s:"トレードセンター前",l:"ニュートラム南港ポートタウン線 徒歩7分",u:"https://www.kongogakuen.ed.jp/"},
+"金蘭会":{s:"福島",l:"JR大阪環状線 徒歩6分",u:"https://kinran.ed.jp/"},
+"ヴェリタス城星学園":{s:"玉造",l:"Osaka Metro長堀鶴見緑地線 徒歩6分",u:"https://www.veritas.josei.ed.jp/"},
+"大阪女学院":{s:"玉造",l:"Osaka Metro長堀鶴見緑地線 徒歩3分",u:"https://www.osaka-jogakuin.ed.jp/senior/"},
+"相愛":{s:"本町",l:"Osaka Metro御堂筋線 徒歩1分",u:"https://www.soai.ed.jp/"},
+"追手門学院大手前":{s:"天満橋",l:"京阪本線 徒歩7分",u:"https://www.otemon-js.ed.jp/"},
+"昇陽":{s:"千鳥橋",l:"阪神なんば線 徒歩5分",u:"https://www.oskshoyo.ed.jp/hs/"},
+"香ヶ丘リベルテ":{s:"浅香",l:"JR阪和線 徒歩5分",u:"https://www.liberte.ed.jp/"},
+"賢明学院":{s:"上野芝",l:"JR阪和線 徒歩13分",u:"https://kenmei.jp/highschool/"},
+"堺リベラル":{s:"堺市",l:"JR阪和線＋路線バス利用",u:"https://www.liberal.ed.jp/s-highschool/"},
+"精華":{s:"泉ケ丘",l:"泉北高速＋南海バス利用",u:"https://www.seika-h.ed.jp/"},
+"大阪商業大学堺":{s:"深井",l:"泉北高速 徒歩15分",u:"https://www.shodaisakai.ac.jp/"},
+"近畿大学泉州":{s:"和泉中央",l:"スクールバス利用",u:"https://www.kindai-sensyu.ed.jp/"},
+"梅花":{s:"豊中",l:"阪急宝塚線 徒歩13分",u:"https://www.baika-jh.ed.jp/"},
+"履正社":{s:"曽根",l:"阪急宝塚線 徒歩15分",u:"https://riseisha.ed.jp/"},
+"宣真":{s:"石橋阪大前",l:"阪急宝塚線・箕面線 徒歩10分",u:"https://senshin-gakuen.jp/"},
+"関西大学第一":{s:"関大前",l:"阪急千里線 徒歩3分",u:"https://www.kansai-u.ac.jp/dai-ichi/high/"},
+"大阪学院大学":{s:"岸辺",l:"JR京都線 徒歩3分",u:"https://www.ogu-h.ed.jp/"},
+"金蘭千里":{s:"北千里",l:"阪急千里線・Osaka Metro堺筋線 徒歩10分",u:"https://www.kinransenri.ed.jp/"},
+"高槻":{s:"高槻市",l:"阪急京都線 徒歩7分",u:"https://www.takatsuki.ed.jp/"},
+"金光大阪":{s:"上牧",l:"阪急京都線 徒歩4分",u:"https://www.kohs.ed.jp/"},
+"大阪青凌":{s:"島本",l:"JR京都線 徒歩10分",u:"https://www.osakaseiryo.jp/"},
+"関西大学高等部":{s:"高槻",l:"JR京都線 徒歩7分",u:"https://www.kansai-u.ac.jp/senior/"},
+"大阪国際":{s:"土居",l:"京阪本線 徒歩8分",u:"https://www.kokusai-h.oiu.ed.jp/"},
+"大阪電気通信大学":{s:"西三荘",l:"京阪本線 徒歩6分",u:"https://www.dentsu.ed.jp/"},
+"常翔啓光学園":{s:"宮之阪",l:"京阪交野線 徒歩8分",u:"https://www.keiko.josho.ac.jp/"},
+"東海大学付属大阪仰星":{s:"村野",l:"京阪交野線 徒歩10分",u:"https://www.tokai-gyosei.ed.jp/"},
+"関西大倉":{s:"彩都西",l:"大阪モノレール彩都線＋スクールバス",u:"https://www.kankura.jp/"},
+"追手門学院":{s:"総持寺",l:"JR京都線・阪急京都線 徒歩10分",u:"https://www.otemon-jh.ed.jp/"},
+"早稲田大阪":{s:"彩都西",l:"大阪モノレール彩都線 徒歩15分",u:"https://waseda-osaka.jp/"},
+"金光八尾":{s:"恩智",l:"近鉄大阪線 徒歩7分",u:"https://konkoyao.ed.jp/"},
+"利晶学園":{s:"滝谷不動",l:"近鉄長野線 徒歩19分",u:"https://www.rishogakuen.ed.jp/ritsumeikan/"},
+"香里ヌヴェール学院":{s:"香里園",l:"京阪本線 徒歩8分",u:"https://www.seibo.ed.jp/nevers-hs/"},
+"同志社香里":{s:"香里園",l:"京阪本線 徒歩18分",u:"https://www.kori.doshisha.ac.jp/"},
+"大阪暁光":{s:"千代田",l:"南海高野線 徒歩8分",u:"https://www.osakagyoko.ed.jp/"},
+"阪南大学":{s:"高見ノ里",l:"近鉄南大阪線 徒歩7分",u:"https://www.hdk.ed.jp/"},
+"四條畷学園":{s:"四条畷",l:"JR学研都市線 徒歩1分",u:"https://hs.shijonawate-gakuen.ac.jp/"},
+"太成学院大学":{s:"鴻池新田",l:"JR学研都市線 徒歩7分",u:"https://www.taisei-hs.ac.jp/hs/"},
+"箕面学園":{s:"箕面",l:"阪急箕面線 徒歩5分",u:"https://minohgakuen.ed.jp/"},
+"アサンプション国際":{s:"箕面",l:"阪急箕面線 徒歩15分",u:"https://www.assumption.ed.jp/jsh/"},
+"関西学院千里国際":{s:"北千里",l:"阪急千里線 徒歩20分",u:"https://sis.kwansei.ac.jp/"},
+"関西福祉科学大学":{s:"河内国分",l:"近鉄大阪線 徒歩12分",u:"https://www.hs.fuksi-kagk-u.ac.jp/"},
+"大阪薫英女学院":{s:"正雀",l:"阪急京都線 徒歩5分",u:"https://www.kun-ei.jp/"},
+"羽衣学園":{s:"羽衣",l:"南海本線 徒歩4分",u:"https://hagoromogakuen.ed.jp/"},
+"清風南海":{s:"北助松",l:"南海本線 徒歩6分",u:"https://www.seifunankai.ac.jp/"},
+"大阪緑涼":{s:"藤井寺",l:"近鉄南大阪線 徒歩5分",u:"https://www.osakaryokuryo.ed.jp/"},
+"四天王寺東":{s:"藤井寺",l:"近鉄南大阪線 徒歩4分",u:"https://www.shitennojigakuen.ed.jp/higashi/"},
+"樟蔭":{s:"河内小阪",l:"近鉄奈良線 徒歩4分",u:"https://www.osaka-shoin.ac.jp/hs/"},
+"大阪商業大学":{s:"八戸ノ里",l:"近鉄奈良線 徒歩5分",u:"https://www.daishodai-h.ed.jp/"},
+"アナン学園":{s:"八戸ノ里",l:"近鉄奈良線 徒歩15分",u:"https://www.anangakuen.ed.jp/"},
+"東大阪大学敬愛":{s:"河内小阪",l:"近鉄奈良線 徒歩15分",u:"https://www.higashiosaka-hs.ac.jp/keiai/"},
+"上宮太子":{s:"上ノ太子",l:"近鉄南大阪線 バス・スクールバス利用",u:"https://uenomiya-taishi.ed.jp/"},
+"大阪体育大学浪商":{s:"熊取",l:"JR阪和線＋南海バス約10分",u:"https://www.ouhs-school.jp/namisho/"},
+"葺合":{s:"王子公園",l:"阪急神戸線 徒歩10分",u:"https://www.kobe-c.ed.jp/fki-hs/"},
+"六甲アイランド":{s:"アイランドセンター",l:"六甲ライナー 徒歩7分",u:"https://www.kobe-c.ed.jp/rki-hs/"},
+"科学技術":{s:"灘",l:"JR神戸線 徒歩3分",u:"https://kagi-hs.kobe-c.ed.jp/"},
+"夢野台":{s:"上沢",l:"神戸市営地下鉄 徒歩8分",u:"https://www.hyogo-c.ed.jp/~yumenodai-hs/"},
+"神戸鈴蘭台":{s:"鈴蘭台",l:"神戸電鉄 徒歩20分",u:"https://www.hyogo-c.ed.jp/~kobesuzuran-hs/"},
+"北神戸総合":{s:"北鈴蘭台",l:"神戸電鉄 徒歩15分",u:"https://dmzcms.hyogo-c.ed.jp/kitakobesogo-hs/NC3/"},
+"神戸甲北":{s:"北鈴蘭台",l:"神戸電鉄有馬線 徒歩12分",u:"https://www.hyogo-c.ed.jp/~kohoku-hs/"},
+"神戸北":{s:"唐櫃台",l:"神戸電鉄有馬線 徒歩10分",u:"https://www.hyogo-c.ed.jp/~kobekita-hs/"},
+"兵庫工業":{s:"和田岬",l:"神戸市営地下鉄海岸線 徒歩4分",u:"https://www.hyogo-ths.hyogo.kobe.jp/"},
+"神港橘":{s:"上沢",l:"神戸市営地下鉄 徒歩3分",u:"https://www.kobe-c.ed.jp/skt-hs/"},
+"北須磨":{s:"名谷",l:"神戸市営地下鉄 徒歩12分",u:"https://www.hyogo-c.ed.jp/~kitasuma-hs/"},
+"神戸学園都市":{s:"学園都市",l:"神戸市営地下鉄 徒歩12分",u:"https://www2.hyogo-c.ed.jp/weblog2/gakuentoshi-hs/"},
+"伊川谷北":{s:"学園都市",l:"神戸市営地下鉄 徒歩12分",u:"https://www2.hyogo-c.ed.jp/weblog2/ikakita-hs/"},
+"伊川谷":{s:"伊川谷",l:"神戸市営地下鉄＋バス利用",u:"https://www.hyogo-c.ed.jp/~ikawadani-hs/"},
+"須磨東":{s:"妙法寺",l:"神戸市営地下鉄 徒歩10分",u:"https://dmzcms.hyogo-c.ed.jp/sumahigashi-hs/NC3/"},
+"須磨友が丘":{s:"妙法寺",l:"神戸市営地下鉄 徒歩14分",u:"https://www.hyogo-c.ed.jp/~tomogaoka-hs/"},
+"神戸高塚":{s:"西神中央",l:"神戸市営地下鉄 徒歩10分",u:"https://www.hyogo-c.ed.jp/~takatsuka-hs/"},
+"須磨翔風":{s:"名谷",l:"神戸市営地下鉄 徒歩7分",u:"https://www.kobe-c.ed.jp/ssy-hs/"},
+"国際(兵庫)":{s:"打出",l:"阪神本線 徒歩12分",u:"https://hyogopref-kokusaihs.ed.jp/"},
+"洲本実業":{s:"洲本バスセンター",l:"高速バス＋淡交バス利用（鉄道なし）",u:"https://www.hyogo-c.ed.jp/~sumoto-ihs/"},
+"淡路三原":{s:"洲本（バス）",l:"鉄道なし、バス利用",u:"https://www.hyogo-c.ed.jp/~awajimihara-hs/"},
+"尼崎北":{s:"塚口",l:"阪急神戸線 徒歩10分",u:"https://www.hyogo-c.ed.jp/~amakita-hs/"},
+"尼崎小田":{s:"尼崎",l:"JR尼崎 徒歩12分",u:"https://amagasakioda.ed.jp/"},
+"尼崎西":{s:"武庫川",l:"阪神 徒歩15分",u:"https://www.hyogo-c.ed.jp/~amanishi-hs/"},
+"尼崎工業":{s:"尼崎",l:"JR尼崎 徒歩10分",u:"https://www2.hyogo-c.ed.jp/weblog2/amako-ths/"},
+"武庫荘総合":{s:"武庫之荘",l:"阪急＋阪神バス「武庫荘総合高校」",u:"https://www.hyogo-c.ed.jp/~mukosogo-hs/"},
+"尼崎(市立)":{s:"武庫之荘",l:"阪急神戸線 徒歩10分",u:"https://www.ama-net.ed.jp/school/H01/"},
+"尼崎双星":{s:"塚口",l:"JR塚口 徒歩15分",u:"https://www.ama-net.ed.jp/school/H06/"},
+"西宮(市立)":{s:"西宮北口",l:"阪急＋阪急バス「広田神社前」",u:"https://www.fureai-cloud.jp/ichinish/"},
+"西宮東":{s:"鳴尾・武庫川女子大前",l:"阪神 徒歩8分",u:"https://www.fureai-cloud.jp/nishihh/"},
+"鳴尾":{s:"鳴尾・武庫川女子大前",l:"阪神 徒歩10分",u:"https://www.hyogo-c.ed.jp/~naruo-hs/"},
+"西宮苦楽園":{s:"夙川",l:"阪急＋阪急バス「苦楽園」",u:"https://www2.hyogo-c.ed.jp/weblog2/kurakuen-hs/"},
+"西宮北":{s:"夙川",l:"阪急＋バス「柏堂町」",u:"https://www.hyogo-c.ed.jp/~nishikita-hs/"},
+"西宮甲山":{s:"夙川",l:"阪急＋路線バス「西宮甲山高校前」",u:"https://www.hyogo-c.ed.jp/~kabutoyama-hs/"},
+"西宮今津":{s:"甲子園",l:"阪神 徒歩17分",u:"https://www.hyogo-c.ed.jp/~imazu-hs/"},
+"西宮南":{s:"武庫川団地前",l:"阪神武庫川線 徒歩10分",u:"https://www.hyogo-c.ed.jp/~nishiminami-hs/"},
+"宝塚西":{s:"逆瀬川",l:"阪急＋阪急バス「宝塚西高校前」",u:"https://www.hyogo-c.ed.jp/~takaranishi-hs/"},
+"宝塚":{s:"逆瀬川",l:"阪急＋阪急バス「アヴェルデ前」",u:"https://www.hyogo-c.ed.jp/~takarazuka-hs/"},
+"宝塚東":{s:"中山観音",l:"阪急宝塚線＋阪急バス利用",u:"https://www.hyogo-c.ed.jp/~takarahigashi-hs/"},
+"伊丹北":{s:"中山寺",l:"JR宝塚線＋伊丹市バス利用",u:"https://dmzcms.hyogo-c.ed.jp/itamikita-hs/NC3/%E3%82%A2%E3%82%AF%E3%82%BB%E3%82%B9/"},
+"伊丹西":{s:"伊丹",l:"阪急伊丹＋市バス利用",u:"https://www.hyogo-c.ed.jp/~itaminishi-hs/"},
+"伊丹(市立)":{s:"新伊丹",l:"阪急伊丹線 徒歩8分",u:"https://www.itami.ed.jp/school/iti_kou/index.html"},
+"川西北陵":{s:"山下",l:"能勢電鉄 徒歩20分",u:"https://www.hyogo-c.ed.jp/~hokuryo-hs/"},
+"川西明峰":{s:"川西能勢口",l:"阪急＋阪急バス利用",u:"https://www.hyogo-c.ed.jp/~meiho-hs/"},
+"猪名川":{s:"日生中央",l:"能勢電鉄日生線 徒歩15分",u:"https://www.hyogo-c.ed.jp/~inagawa-hs/"},
+"三田祥雲館":{s:"新三田",l:"JR＋神姫バス「関西学院前」",u:"https://www.hyogo-c.ed.jp/~shoun-hs/"},
+"三田西陵":{s:"ウッディタウン中央",l:"神鉄＋神姫バス利用",u:"https://dmzcms.hyogo-c.ed.jp/sandaseiryo-hs/NC3/"},
+"有馬":{s:"三田",l:"JR・神鉄三田 徒歩15分",u:"https://dmzcms.hyogo-c.ed.jp/arima-hs/NC3/"},
+"篠山産業":{s:"篠山口",l:"JR＋神姫バス「篠山産業高校前」",u:"https://www2.hyogo-c.ed.jp/weblog2/sasayama-ihs/"},
+"篠山東雲":{s:"篠山口",l:"JR＋神姫バス「福住」",u:"https://www.hyogo-c.ed.jp/~sasashino-hs/"},
+"氷上":{s:"黒井",l:"JR福知山線 徒歩15分",u:"https://www.hyogo-c.ed.jp/~hikami-hs/"},
+"氷上西":{s:"石生",l:"JR＋神姫グリーンバス利用",u:"https://dmzcms.hyogo-c.ed.jp/hikaminishi-hs/NC3/"},
+"明石城西":{s:"中八木",l:"山陽電車 徒歩5分",u:"https://www2.hyogo-c.ed.jp/weblog2/josai-hs/"},
+"明石":{s:"大蔵谷",l:"山陽電車 徒歩17分（神姫バス「明石高校前」）",u:"https://dmzcms.hyogo-c.ed.jp/akashi-hs/NC3/"},
+"明石西":{s:"西二見",l:"山陽電車 徒歩5分",u:"https://dmzcms.hyogo-c.ed.jp/meisei-hs/NC3/"},
+"明石清水":{s:"魚住",l:"JR山陽本線 徒歩20分",u:"https://www.hyogo-c.ed.jp/~shimizu-hs/"},
+"明石南":{s:"西明石",l:"JR西明石 西口 徒歩15分",u:"https://www.hyogo-c.ed.jp/~meinan-hs/"},
+"明石商業":{s:"魚住",l:"JR神戸線 徒歩20分（神姫バス「青葉台口」）",u:"https://www.akashi-ch.ed.jp/"},
+"加古川西":{s:"加古川",l:"JR神戸線 徒歩14分",u:"https://www.hyogo-c.ed.jp/~kakonishi-hs/"},
+"加古川北":{s:"加古川",l:"JR＋神姫バス「水足」",u:"https://www.hyogo-c.ed.jp/~kakokita-hs/"},
+"加古川南":{s:"加古川",l:"JR＋神姫バス「加古川南高校前」",u:"https://www.hyogo-c.ed.jp/~kakominami-hs/"},
+"農業(兵庫)":{s:"東加古川",l:"JR神戸線 徒歩25分",u:"https://www.hyogo-c.ed.jp/~kenno-ahs/"},
+"東播工業":{s:"宝殿",l:"JR神戸線＋バス利用",u:"https://www.hyogo-c.ed.jp/~toban-ths/"},
+"高砂南":{s:"高砂",l:"山陽電鉄本線 徒歩8分",u:"https://www.hyogo-c.ed.jp/~takaminami-hs/"},
+"松陽":{s:"山陽曽根",l:"山陽電鉄本線 徒歩10分",u:"https://dmzcms.hyogo-c.ed.jp/shoyo-hs/NC3/"},
+"東播磨":{s:"東加古川",l:"JR神戸線 徒歩29分",u:"https://www.hyogo-c.ed.jp/~higashiharima-hs/"},
+"播磨南":{s:"西二見",l:"山陽電鉄本線 徒歩7分",u:"https://www.hyogo-c.ed.jp/~harimaminami-hs/"},
+"小野":{s:"小野",l:"神戸電鉄粟生線 徒歩3分",u:"https://dmzcms.hyogo-c.ed.jp/ono-hs/NC3/"},
+"小野工業":{s:"小野",l:"神戸電鉄粟生線 徒歩10分",u:"https://www.hyogo-c.ed.jp/~ono-ths/"},
+"三木総合":{s:"志染",l:"神戸電鉄粟生線 徒歩7分",u:"https://dmzcms.hyogo-c.ed.jp/mikisogo-hs/NC3/top"},
+"三木北":{s:"緑が丘",l:"神戸電鉄＋神姫バス「三木北高校前」",u:"https://www.hyogo-c.ed.jp/~mikikita-hs/"},
+"三木東":{s:"志染",l:"神戸電鉄粟生線 徒歩7分",u:"https://www.hyogo-c.ed.jp/~mikihigashi-hs/"},
+"吉川":{s:"恵比須",l:"神戸電鉄＋神姫バス「渡瀬」",u:"https://www.hyogo-c.ed.jp/~yokawa-hs/"},
+"社":{s:"滝野",l:"JR加古川線＋神姫バス「社高校前」",u:"https://www.hyogo-c.ed.jp/~yashiro-hs/"},
+"北条":{s:"北条町",l:"北条鉄道＋バス利用",u:"http://hojo.ed.jp/"},
+"播磨農業":{s:"北条町",l:"北条鉄道＋神姫バス「播磨農高前」",u:"https://harima-agri.ed.jp/"},
+"西脇工業":{s:"西脇市",l:"JR加古川線 徒歩12分",u:"https://www.hyogo-c.ed.jp/~nishiwaki-ths/"},
+"多可":{s:"本黒田",l:"JR加古川線＋神姫バス「多可高校前」",u:"https://dmzcms.hyogo-c.ed.jp/taka-hs/NC3/"},
+"姫路飾西":{s:"余部",l:"JR姫新線 徒歩10分",u:"https://www.hyogo-c.ed.jp/~shikisai-hs/"},
+"姫路海稜":{s:"はりま勝原",l:"JR山陽本線 徒歩18分",u:"https://dmzcms.hyogo-c.ed.jp/himejikairyo-hs/NC3/"},
+"姫路南":{s:"はりま勝原",l:"JR山陽本線 徒歩18分",u:"https://www.hyogo-c.ed.jp/~himeminami-hs/"},
+"網干":{s:"山陽網干",l:"山陽電鉄網干線＋バス・自転車利用",u:"https://www.hyogo-c.ed.jp/~aboshi-hs/"},
+"家島":{s:"姫路港（フェリー）",l:"姫路港から高速船約30分（離島）",u:"https://www.hyogo-c.ed.jp/~ieshima-hs/"},
+"姫路別所":{s:"ひめじ別所",l:"JR山陽本線 北へ約2km",u:"https://www.hyogo-c.ed.jp/~bessho-hs/"},
+"香寺":{s:"溝口",l:"JR播但線 徒歩10分",u:"https://www.hyogo-c.ed.jp/~kodera-hs/"},
+"姫路商業":{s:"播磨高岡",l:"JR姫新線＋神姫バス「姫路商業高校前」",u:"https://www.hyogo-c.ed.jp/~himeji-chs/"},
+"姫路工業":{s:"野里",l:"JR播但線＋神姫バス「慶雲寺前」",u:"https://www.hyogo-c.ed.jp/~himeji-ths/"},
+"飾磨工業":{s:"飾磨",l:"山陽電鉄本線 徒歩7分",u:"https://www.hyogo-c.ed.jp/~shikama-ths/"},
+"姫路(市立)":{s:"姫路",l:"JR・山陽姫路＋神姫バス「姫路高校前」",u:"https://www.city.himeji.lg.jp/school/category/36-1-0-0-0-0-0-0-0-0.html"},
+"琴丘":{s:"播磨高岡",l:"JR姫新線 徒歩15分",u:"https://www.city.himeji.lg.jp/school/category/36-2-0-0-0-0-0-0-0-0.html"},
+"飾磨(市立)":{s:"妻鹿",l:"山陽電鉄本線 徒歩圏",u:"https://www.city.himeji.lg.jp/school/category/36-3-0-0-0-0-0-0-0-0.html"},
+"播磨福崎":{s:"福崎",l:"JR播但線 徒歩4分",u:"https://dmzcms.hyogo-c.ed.jp/harifuku-hs/NC3/"},
+"福崎":{s:"福崎",l:"JR播但線 徒歩5分",u:"https://www.hyogo-c.ed.jp/~fukusaki-hs/"},
+"夢前":{s:"福崎",l:"JR＋神姫バス「夢前高校前」",u:"https://www.hyogo-c.ed.jp/~yumesaki-hs/"},
+"神崎":{s:"寺前",l:"JR播但線＋バス約10分",u:"https://www.hyogo-c.ed.jp/~kanzaki-hs/"},
+"龍野北":{s:"播磨新宮",l:"JR姫新線 徒歩10分",u:"https://www.hyogo-c.ed.jp/~tatsunokita-hs/"},
+"相生産業":{s:"西相生",l:"JR赤穂線 徒歩5分",u:"https://www.hyogo-c.ed.jp/~aioi-ihs/"},
+"山崎":{s:"播磨新宮",l:"JR姫新線＋神姫バス利用",u:"https://www.hyogo-c.ed.jp/~yamasaki-hs/"},
+"伊和":{s:"播磨新宮",l:"JR＋神姫バス「伊和高校前」",u:"https://www.hyogo-c.ed.jp/~iwa-hs/"},
+"千種":{s:"播磨新宮",l:"JR＋神姫バス「千種高校」",u:"https://www.hyogo-c.ed.jp/~chikusa-hs/"},
+"太子":{s:"網干",l:"JR山陽本線 徒歩8分",u:"https://www.hyogo-c.ed.jp/~taishi-hs/"},
+"上郡":{s:"上郡",l:"JR山陽本線・智頭急行 徒歩10分",u:"https://www.hyogo-c.ed.jp/~kamigori-hs/"},
+"兵庫県立大学附属":{s:"播磨新宮",l:"JR＋神姫バス「県立大附属高校前」",u:"http://www.ajhs.ahs.u-hyogo.ac.jp/"},
+"佐用":{s:"佐用",l:"JR姫新線・智頭急行 徒歩",u:"https://www.hyogo-c.ed.jp/~sayo-hs/"},
+"豊岡総合":{s:"豊岡",l:"JR山陰本線 徒歩15分",u:"https://www.hyogo-c.ed.jp/~toyookasogo-hs/"},
+"日高":{s:"江原",l:"JR山陰本線 徒歩5分",u:"https://www.hyogo-c.ed.jp/~hidaka-hs/"},
+"浜坂":{s:"浜坂",l:"JR山陰本線 徒歩14分",u:"https://www.hyogo-c.ed.jp/~hamasaka-hs/"},
+"香住":{s:"香住",l:"JR山陰本線 徒歩15分",u:"https://www.hyogo-c.ed.jp/~kasumi-hs/"},
+"村岡":{s:"八鹿",l:"JR＋全但バス「福西」",u:"https://www.hyogo-c.ed.jp/~muraoka-hs/"},
+"但馬農業":{s:"八鹿",l:"JR＋全但バス「但馬農高」",u:"https://www.hyogo-c.ed.jp/~tajima-ahs/"},
+"生野(朝来)":{s:"生野",l:"JR播但線 徒歩10分",u:"https://www.hyogo-c.ed.jp/~ikuno-hs/"},
+"神戸大学附属中等教育学校":{s:"御影",l:"阪急神戸線 徒歩15分（神戸市バス「神大附属前」）",u:"https://www.edu.kobe-u.ac.jp/kuss-top/"},
+"芦屋学園":{s:"芦屋川",l:"阪急神戸線＋スクールバス約10分",u:"https://www.ashiya.ed.jp/"},
+"関西学院":{s:"甲東園",l:"阪急今津線 徒歩15分",u:"https://sh.kwansei.ac.jp/"},
+"仁川学院":{s:"仁川",l:"阪急今津線 徒歩6分",u:"https://www.nigawa.ac.jp/"},
+"雲雀丘学園":{s:"雲雀丘花屋敷",l:"阪急宝塚線 徒歩3分",u:"https://www.hibari-ho.ed.jp/"},
+"園田学園":{s:"塚口",l:"阪急神戸線 徒歩8分",u:"https://www.sonodagakuen.ed.jp/"},
+"育英":{s:"板宿",l:"山陽電鉄・市営地下鉄 徒歩15分",u:"https://www.ikuei.ac.jp/"},
+"啓明学院":{s:"妙法寺",l:"神戸市営地下鉄＋市バス「啓明学院前」",u:"https://www.keimei.ed.jp/"},
+"神戸学院大学附属":{s:"みなとじま",l:"ポートライナー 徒歩6分",u:"https://www.kobegakuin-f.ed.jp/"},
+"神戸国際大学附属":{s:"舞子",l:"JR舞子＋市バス「多聞東小学校前」",u:"https://www.kobe-michael.ac.jp/"},
+"神戸第一":{s:"新神戸",l:"神戸市営地下鉄 徒歩10分",u:"https://kobedai1.ed.jp/"},
+"神戸野田":{s:"鷹取",l:"JR山陽本線 徒歩7分",u:"https://kobenoda-h.ed.jp/"},
+"神戸龍谷":{s:"新神戸",l:"地下鉄新神戸 徒歩15分",u:"https://www.koberyukoku.ed.jp/"},
+"夙川":{s:"湊川",l:"神戸電鉄・神戸高速線 徒歩10分",u:"https://www.sumashuku.jp/"},
+"神港学園":{s:"県庁前",l:"神戸市営地下鉄 徒歩5分",u:"https://shinko.ed.jp/"},
+"神戸山手グローバル":{s:"県庁前",l:"神戸市営地下鉄 徒歩12分",u:"https://www.kobeyamate.ed.jp/"},
+"彩星工科":{s:"長田",l:"神戸市営地下鉄 徒歩2分",u:"https://saiseikoka.ed.jp/"},
+"三田松聖":{s:"相野",l:"JR福知山線 徒歩5分",u:"https://www.sandashosei.net/"},
+"市川":{s:"甘地",l:"JR播但線 徒歩15分",u:"https://ichikawa.ed.jp/"},
+"日ノ本学園":{s:"香呂",l:"JR播但線 徒歩15分",u:"https://www.hinomoto.ac.jp/"},
+"生野学園":{s:"生野",l:"JR播但線 タクシー約10分（全寮制）",u:"https://www.ikuno.ed.jp/"},
+"柳学園蒼開":{s:"洲本バスセンター",l:"洲本バスセンターから徒歩15分（淡路島・鉄道なし）",u:"https://www.soukai-school.jp/"},
+"甲陽学院":{s:"甲陽園",l:"阪急甲陽線 徒歩15分",u:"https://www.koyo.ac.jp/"},
+"報徳学園":{s:"甲東園",l:"阪急今津線 徒歩20分",u:"https://www.hotoku.ac.jp/"},
+"愛徳学園":{s:"霞ヶ丘",l:"山陽電鉄本線 徒歩10分",u:"https://www.aitokugakuen.ed.jp/"},
+"小林聖心女子学院":{s:"小林",l:"阪急今津線 徒歩7分",u:"https://www.oby-sacred-heart.ed.jp/"},
+"賢明女子学院":{s:"姫路",l:"JR・山陽電鉄 徒歩15分",u:"https://www.himejikenmei.ac.jp/"},
+"甲子園学院":{s:"甲子園口",l:"JR神戸線 徒歩7分",u:"https://www.koshiengakuin-h.ed.jp/"},
+"神戸海星女子学院":{s:"灘",l:"JR神戸線 徒歩13分",u:"https://www.kobekaisei.ed.jp/"},
+"神戸国際":{s:"妙法寺",l:"市営地下鉄＋市バス「高倉台7丁目」",u:"https://kis.ed.jp/"},
+"神戸常盤女子":{s:"西代",l:"山陽電鉄本線 徒歩8分",u:"https://www.kobe-tokiwa.ed.jp/"},
+"甲南女子":{s:"甲南山手",l:"JR神戸線 徒歩10分",u:"https://www.konan-gs.ed.jp/"},
+"松蔭":{s:"王子公園",l:"阪急神戸線 徒歩15分",u:"https://shoin-jhs.ac.jp/"},
+"兵庫大学附属須磨ノ浦":{s:"月見山",l:"山陽電鉄本線 徒歩5分",u:"https://sumanoura.ed.jp/"},
+"姫路女学院":{s:"姫路",l:"JR・山陽電鉄 徒歩4分",u:"https://www.himeji-jogakuin.ed.jp/"},
+"武庫川女子大学附属":{s:"鳴尾・武庫川女子大前",l:"阪神本線 徒歩15分",u:"https://jhs.mukogawa-u.ac.jp/"},
+"百合学院":{s:"園田",l:"阪急神戸線 徒歩12分",u:"https://high.yuri-gakuin.ac.jp/"},
+"京都つくば開成":{s:"京都",l:"JR・地下鉄 京都駅 徒歩8分",u:"https://kyoto.tsukuba-kaisei.ed.jp/"},
+"京都長尾谷":{s:"墨染",l:"京阪本線 徒歩7分",u:"https://www.kyoto-nagaodani.ed.jp/"},
+"京都美山":{s:"今出川",l:"地下鉄烏丸線 徒歩8分",u:"https://www.miyama.ed.jp/"},
+"聖心学園":{s:"橿原神宮西口",l:"近鉄南大阪線 徒歩5分",u:"https://www.seishingakuenchuto.ed.jp/"},
+"幸福の科学学園関西":{s:"おごと温泉",l:"JR湖西線＋送迎バス",u:"https://kansai.happy-science.ac.jp/"},
+"MIHO美学院":{s:"信楽",l:"信楽高原鐵道＋スクールバス（全寮制）",u:"https://www.mihobigaku.jp/"},
+"和歌山":{s:"紀伊小倉",l:"JR和歌山線 徒歩20分",u:"https://www.wakayama-h.wakayama-c.ed.jp/"},
+"星林":{s:"和歌山港",l:"南海和歌山港線 徒歩25分（バス「秋葉山」徒歩10分）",u:"https://www.seirin-h.wakayama-c.ed.jp/"},
+"和歌山工業":{s:"和歌山港",l:"和歌山バス「和歌山工業高校前」下車すぐ",u:"https://www.wakayama-th.wakayama-c.ed.jp/"},
+"和歌山商業":{s:"和歌山港",l:"南海和歌山港線 徒歩17分（バス「土佐町三丁目」徒歩5分）",u:"https://www.wakayama-ch.wakayama-c.ed.jp/"},
+"和歌山北":{s:"紀ノ川",l:"南海本線 徒歩5分",u:"https://www.wakayamakita-h.wakayama-c.ed.jp/"},
+"和歌山東":{s:"岡崎前",l:"和歌山電鐵貴志川線 徒歩6分",u:"https://www.wakayamahigashi-h.wakayama-c.ed.jp/"},
+"桐蔭":{s:"和歌山",l:"JR・南海＋和歌山バス「小松原五丁目」徒歩5分",u:"https://www.toin-h.wakayama-c.ed.jp/"},
+"向陽(和歌山)":{s:"日前宮",l:"和歌山電鐵貴志川線 徒歩3分",u:"https://www.koyo-h.wakayama-c.ed.jp/"},
+"那賀":{s:"岩出",l:"JR和歌山線 徒歩8分",u:"https://www.naga-h.wakayama-c.ed.jp/"},
+"粉河":{s:"粉河",l:"JR和歌山線 徒歩10分",u:"https://www.kokawa-h.wakayama-c.ed.jp/"},
+"貴志川":{s:"甘露寺前",l:"和歌山電鐵貴志川線 徒歩8分",u:"https://www.kishigawa-h.wakayama-c.ed.jp/"},
+"橋本":{s:"橋本",l:"JR和歌山線・南海高野線 徒歩9分",u:"https://www.hashimoto-h.wakayama-c.ed.jp/"},
+"紀北工業":{s:"紀伊山田",l:"JR和歌山線 徒歩15分",u:"https://www.kihoku-th.wakayama-c.ed.jp/"},
+"笠田":{s:"笠田",l:"JR和歌山線 徒歩10分",u:"https://www.kaseda-h.wakayama-c.ed.jp/"},
+"紀北農芸":{s:"中飯降",l:"JR和歌山線 徒歩10分",u:"https://www.kihokunougei-ah.wakayama-c.ed.jp/"},
+"海南":{s:"海南",l:"JRきのくに線 徒歩17分（バス「海南高校前」徒歩2分）",u:"https://www.kainan-h.wakayama-c.ed.jp/"},
+"箕島":{s:"箕島",l:"JRきのくに線 徒歩5分",u:"https://www.minoshima-h.wakayama-c.ed.jp/"},
+"耐久":{s:"湯浅",l:"JRきのくに線 徒歩12分",u:"https://www.taikyu-h.wakayama-c.ed.jp/"},
+"有田中央":{s:"藤並",l:"JRきのくに線＋有田鉄道バス「下津野」徒歩5分",u:"https://www.aridachuo-h.wakayama-c.ed.jp/"},
+"日高(和歌山)":{s:"学門",l:"紀州鉄道 徒歩2分",u:"https://www.hidaka-h.wakayama-c.ed.jp/"},
+"紀央館":{s:"御坊",l:"JRきのくに線 徒歩3分",u:"https://www.kiokan-h.wakayama-c.ed.jp/"},
+"南部":{s:"南部",l:"JRきのくに線 徒歩3分",u:"https://www.minabe-h.wakayama-c.ed.jp/"},
+"田辺(和歌山)":{s:"紀伊田辺",l:"JRきのくに線 徒歩17分",u:"https://www.tanabe-h.wakayama-c.ed.jp/"},
+"田辺工業":{s:"紀伊新庄",l:"JRきのくに線 徒歩14分",u:"https://www.tanabe-th.wakayama-c.ed.jp/"},
+"神島":{s:"紀伊田辺",l:"JRきのくに線 徒歩30分",u:"https://www.tanabe-ch.wakayama-c.ed.jp/"},
+"熊野":{s:"朝来",l:"JRきのくに線 徒歩19分（バス「熊野高校前」）",u:"https://www.kumano-h.wakayama-c.ed.jp/"},
+"串本古座":{s:"串本",l:"JRきのくに線 徒歩20分",u:"https://www.kushimoto-h.wakayama-c.ed.jp/"},
+"新宮":{s:"新宮",l:"JRきのくに線 徒歩17分",u:"https://www.shingu-h.wakayama-c.ed.jp/"},
+"新翔":{s:"紀伊佐野",l:"JRきのくに線 徒歩15分",u:"https://www.shinsho-h.wakayama-c.ed.jp/"},
+"和歌山市立和歌山":{s:"六十谷",l:"JR阪和線 徒歩15分",u:"https://www.wakayama-wky.ed.jp/ichiko/"},
+"開智":{s:"六十谷",l:"JR阪和線 徒歩8分",u:"https://www.kaichi.ed.jp/"},
+"近畿大学附属和歌山":{s:"六十谷",l:"JR阪和線＋バス利用",u:"https://www.hwaka.kindai.ac.jp/"},
+"智辯学園和歌山":{s:"黒江",l:"JRきのくに線 徒歩10分",u:"https://www.chiben.ac.jp/wakayama/"},
+"和歌山信愛":{s:"和歌山",l:"JR和歌山線 徒歩12分",u:"https://www.shin-ai.ac.jp/"},
+"初芝橋本":{s:"林間田園都市",l:"南海高野線＋南海りんかんバス約10分",u:"https://www.rishogakuen.ed.jp/hatsuhashi/"},
+"近畿大学附属新宮":{s:"新宮",l:"JRきのくに線 徒歩21分（バス「近大新宮高校前」）",u:"https://www.shingu.kindai.ac.jp/"},
+"高野山":{s:"高野山",l:"南海高野線・ケーブル＋りんかんバス「愛宕前」",u:"https://www.koyasan-h.ed.jp/"},
+"和歌山南陵":{s:"和佐",l:"JRきのくに線 和佐駅より送迎バス約5分",u:"https://w-nanryo.ed.jp/"},
+"りら創造芸術":{s:"貴志",l:"和歌山電鉄貴志川線＋スクールバス",u:"https://www.lyra-art.jp/"}
+};
+
+// ========== Initialize Leaflet Map ==========
+var map = L.map("map", {
+  center: [34.75, 135.55],
+  zoom: 9,
+  zoomControl: true
+});
+
+// ベースタイル: 地理院淡色 / Positron No Labels
+// 出典: 地理院 https://maps.gsi.go.jp/development/ichiran.html / CARTO https://carto.com/attributions
+var tilePale = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+  attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>',
+  maxZoom: 18,
+  minZoom: 5
+});
+var tileSimple = L.tileLayer("https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+  maxZoom: 19,
+  minZoom: 5,
+  subdomains: "abcd"
+});
+tilePale.addTo(map);
+
+// 鉄道路線オーバーレイ（JR・私鉄を赤系で強調）
+// 出典: https://www.openrailwaymap.org/ (ODbL)
+var railwayLayer = L.tileLayer("https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png", {
+  attribution: '<a href="https://www.openrailwaymap.org/" target="_blank" rel="noopener">OpenRailwayMap</a>',
+  maxZoom: 19,
+  minZoom: 5,
+  opacity: 0.95,
+  subdomains: "abc",
+  pane: "overlayPane",
+  className: "railway-tile"
+});
+
+L.control.layers(
+  { "淡色": tilePale, "シンプル": tileSimple },
+  { "🚆 鉄道路線": railwayLayer },
+  { position: "topright", collapsed: false }
+).addTo(map);
+
+// ========== Create markers ==========
+var markers = [];
+var markerLayer = L.layerGroup().addTo(map);
+var fs = {p:[true,true,true,true,true,true], t:[true,true], g:[true,true,true], q:"", hiddenCities:{}, alongRail:false};
+
+// Normalize for fuzzy search (lowercase, hiragana→katakana, remove punctuation)
+function normalizeForSearch(s) {
+  if (!s) return "";
+  return s.toLowerCase().replace(/[ぁ-ゖ]/g, function(c) {
+    return String.fromCharCode(c.charCodeAt(0) + 0x60);
+  }).replace(/高等学校|高校/g, "").replace(/[\s　\-ー()\[\]（）]/g, "");
+}
+
+S.forEach(function(s, i) {
+  var name = s[0], ci = s[1], type = s[2], pref = s[3];
+  var color = PC[pref];
+  var darkColor = PC_DARK[pref];
+
+  // Spiral offset for same-city schools
+  var sameBefore = 0;
+  for (var j = 0; j < i; j++) { if (S[j][1] === S[i][1]) sameBefore++; }
+  var angle = sameBefore * 1.047;
+  // Schools now carry their own exact coordinate, so the first (and only)
+  // school at a given coord sits exactly on it; extra same-coord schools spiral out.
+  var dist = sameBefore === 0 ? 0 : 0.004 * (1 + Math.floor(sameBefore / 6));
+  var lat = G[ci][0] + dist * Math.sin(angle);
+  var lng = G[ci][1] + dist * Math.cos(angle);
+
+  var marker = L.circleMarker([lat, lng], {
+    radius: 5,
+    fillColor: type === 0 ? color : "#ffffff",
+    color: type === 0 ? darkColor : color,
+    weight: 2,
+    fillOpacity: type === 0 ? 0.95 : 1,
+    opacity: 1
+  });
+
+  // Permanent label (visible at zoom >= 12)
+  marker.bindTooltip(name, {
+    permanent: true,
+    direction: "right",
+    offset: [8, 0],
+    className: "school-label",
+    interactive: false
+  });
+
+  // Set label color
+  marker.on("tooltipopen", function(e) {
+    if (e.tooltip && e.tooltip._container) {
+      e.tooltip._container.style.color = darkColor;
+    }
+  });
+
+  // Hover popup with access info
+  var hoverContent = "<b>" + name + "高等学校</b><br>" + PN[pref] + " | " + (type === 0 ? "公立" : "私立");
+  var acc = ACC[name];
+  if (acc) {
+    if (acc.s) hoverContent += "<br><small>最寄: " + acc.s + "</small>";
+    if (acc.l) hoverContent += "<br><small>" + normalizeLineName(acc.l) + "</small>";
+  }
+
+  marker.bindPopup(hoverContent, {
+    closeButton: false,
+    offset: [0, -5],
+    className: "school-popup"
+  });
+
+  marker.on("mouseover", function(e) {
+    this.openPopup();
+    this.setStyle({radius: 8, weight: 2.5});
+  });
+
+  marker.on("mouseout", function(e) {
+    this.closePopup();
+    this.setStyle({radius: 5, weight: 2});
+  });
+
+  marker.on("click", function() {
+    openPanel(i);
+  });
+
+  marker.addTo(markerLayer);
+
+  markers.push({
+    marker: marker,
+    p: pref,
+    t: type,
+    name: name,
+    nameNorm: normalizeForSearch(name),
+    city: CITY[i] || "",
+    cityKey: pref + "|" + (CITY[i] || ""),
+    pn: PN[pref],
+    tn: type === 0 ? "公立" : "私立",
+    ci: ci,
+    lat: lat,
+    lng: lng,
+    idx: i
+  });
+});
+
+// ========== Label visibility by zoom ==========
+var mapEl = document.getElementById("map");
+function updateLabelVisibility() {
+  var z = map.getZoom();
+  if (z >= 12) {
+    mapEl.classList.remove("labels-hidden");
+  } else {
+    mapEl.classList.add("labels-hidden");
+  }
+}
+map.on("zoomend", updateLabelVisibility);
+updateLabelVisibility();
+
+// ========== Filter logic ==========
+function matchesQuery(m) {
+  if (!fs.q) return true;
+  return m.nameNorm.indexOf(fs.q) !== -1;
+}
+
+function matchesCity(m) {
+  return !fs.hiddenCities[m.cityKey];
+}
+
+// 沿線(駅半径1.2km)以内判定 — 簡易距離計算（緯度1度≈111km, 経度1度≈111km*cos(lat)）
+function isAlongRail(m) {
+  if (!fs.alongRail) return true;
+  var stations = window._alongRailStations || [];
+  if (!stations.length) return false;
+  var rad = 1200; // m
+  for (var i = 0; i < stations.length; i++) {
+    var s = stations[i];
+    var dy = (m.lat - s.lat) * 111000;
+    var dx = (m.lng - s.lng) * 111000 * Math.cos(m.lat * Math.PI / 180);
+    if (dx*dx + dy*dy <= rad*rad) return true;
+  }
+  return false;
+}
+
+function isVisible(m) {
+  return fs.p[m.p] && fs.t[m.t] && fs.g[GENDER[m.idx]] && matchesCity(m) && matchesQuery(m) && isAlongRail(m);
+}
+
+function fitMapToVisible() {
+  var bounds = [];
+  markers.forEach(function(m) {
+    if (isVisible(m)) bounds.push([m.lat, m.lng]);
+  });
+  if (bounds.length === 1) {
+    map.flyTo(bounds[0], 14, {duration: 0.6});
+  } else if (bounds.length > 1) {
+    map.flyToBounds(L.latLngBounds(bounds).pad(0.15), {duration: 0.6, maxZoom: 13});
+  }
+}
+
+function getActiveCityStats() {
+  var stats = {};
+  var list = [];
+
+  markers.forEach(function(m) {
+    if (!fs.p[m.p] || !m.city) return;
+    if (!stats[m.cityKey]) {
+      stats[m.cityKey] = {key: m.cityKey, pref: m.p, city: m.city, count: 0};
+      list.push(stats[m.cityKey]);
+    }
+    stats[m.cityKey].count++;
+  });
+
+  list.sort(function(a, b) {
+    if (a.pref !== b.pref) return a.pref - b.pref;
+    return a.city.localeCompare(b.city, "ja");
+  });
+  return list;
+}
+
+function updateCityFilterButton() {
+  var stats = getActiveCityStats();
+  var hidden = stats.filter(function(stat) { return !!fs.hiddenCities[stat.key]; }).length;
+  var summary = document.getElementById("cityFilterSummary");
+  if (!stats.length) {
+    summary.textContent = "対象なし";
+  } else if (hidden === 0) {
+    summary.textContent = "すべて表示";
+  } else if (hidden === stats.length) {
+    summary.textContent = "すべて非表示";
+  } else {
+    summary.textContent = (stats.length - hidden) + "/" + stats.length + "表示";
+  }
+}
+
+var cityModalOverlay = document.getElementById("cityModalOverlay");
+
+function toggleCity(key) {
+  if (fs.hiddenCities[key]) delete fs.hiddenCities[key];
+  else fs.hiddenCities[key] = true;
+  renderCityModal();
+  updateCityFilterButton();
+  upd();
+  fitMapToVisible();
+}
+
+function renderCityModal() {
+  var body = document.getElementById("cityChipsBody");
+  if (!body) return;
+  var stats = getActiveCityStats();
+  // 府県ごとにグループ化
+  var byPref = {};
+  stats.forEach(function(s){ (byPref[s.pref] = byPref[s.pref] || []).push(s); });
+  var html = "";
+  for (var p = 0; p < 6; p++) {
+    if (!byPref[p]) continue;
+    var col = PC[p];
+    var prefStats = byPref[p];
+    var totalHidden = prefStats.filter(function(s){ return !!fs.hiddenCities[s.key]; }).length;
+    var allOn = totalHidden === 0;
+    var allOff = totalHidden === prefStats.length;
+    html += '<section style="border:1.5px solid var(--border);border-radius:var(--r);background:var(--surface-2);padding:10px 12px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+        '<h3 style="font-size:12px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+col+'"></span>'+PN[p]+' <span style="color:var(--ink-soft);font-weight:600;font-size:11px">('+prefStats.length+'市区町村)</span></h3>' +
+        '<div style="display:flex;gap:6px">' +
+          '<button type="button" class="city-prefall" data-pref="'+p+'" data-act="on"  style="padding:4px 10px;border:1.5px solid var(--border);border-radius:var(--r-pill);background:'+(allOn?'var(--accent)':'#fff')+';color:'+(allOn?'#fff':'var(--ink-soft)')+';font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit">全選択</button>' +
+          '<button type="button" class="city-prefall" data-pref="'+p+'" data-act="off" style="padding:4px 10px;border:1.5px solid var(--border);border-radius:var(--r-pill);background:'+(allOff?'var(--ink-faint)':'#fff')+';color:'+(allOff?'#fff':'var(--ink-soft)')+';font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit">全解除</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+    prefStats.sort(function(a,b){return a.city.localeCompare(b.city,"ja");}).forEach(function(s){
+      var on = !fs.hiddenCities[s.key];
+      var bg = on ? col : "var(--surface)";
+      var color = on ? "#fff" : "var(--ink-faint)";
+      var border = on ? col : "var(--border)";
+      html += '<button type="button" data-city-key="'+s.key+'" class="city-chip" style="padding:5px 11px;border-radius:var(--r-pill);border:1.5px solid '+border+';background:'+bg+';color:'+color+';font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s">'+s.city+' <span style="opacity:.65;font-size:10px;margin-left:2px">'+s.count+'</span></button>';
+    });
+    html += '</div></section>';
+  }
+  body.innerHTML = html || '<div style="text-align:center;color:var(--ink-faint);padding:30px">対象がありません</div>';
+  body.querySelectorAll(".city-chip").forEach(function(btn){
+    btn.addEventListener("click", function(){ toggleCity(btn.dataset.cityKey); });
+  });
+  body.querySelectorAll(".city-prefall").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var p = parseInt(btn.dataset.pref);
+      var act = btn.dataset.act;
+      (byPref[p] || []).forEach(function(s){
+        if (act === "on") delete fs.hiddenCities[s.key];
+        else fs.hiddenCities[s.key] = true;
+      });
+      renderCityModal();
+      updateCityFilterButton();
+      upd();
+      fitMapToVisible();
+    });
+  });
+}
+
+
+function openCityModal() {
+  renderCityModal();
+  cityModalOverlay.classList.add("open");
+  document.getElementById("cityModalClose").focus();
+}
+
+function closeCityModal() {
+  cityModalOverlay.classList.remove("open");
+  document.getElementById("cityFilterBtn").focus();
+}
+
+function upd() {
+  var n = 0;
+  markers.forEach(function(m) {
+    var vis = isVisible(m);
+    if (vis) {
+      if (!markerLayer.hasLayer(m.marker)) markerLayer.addLayer(m.marker);
+      n++;
+    } else {
+      if (markerLayer.hasLayer(m.marker)) markerLayer.removeLayer(m.marker);
+    }
+  });
+  var cntEl = document.getElementById("cnt");
+  if (fs.q) {
+    cntEl.textContent = "検索: " + n + " 校 (\"" + document.getElementById("searchInput").value + "\")";
+  } else {
+    cntEl.textContent = "表示: " + n + " / " + markers.length + " 校";
+  }
+  buildSchoolList();
+}
+
+document.querySelectorAll("[data-p]").forEach(function(cb) {
+  cb.addEventListener("change", function(e) {
+    fs.p[parseInt(e.target.dataset.p)] = e.target.checked;
+    updateCityFilterButton();
+    if (cityModalOverlay.classList.contains("open")) renderCityModal();
+    upd();
+  });
+});
+document.querySelectorAll("[data-t]").forEach(function(cb) {
+  cb.addEventListener("change", function(e) {
+    fs.t[parseInt(e.target.dataset.t)] = e.target.checked;
+    upd();
+  });
+});
+document.querySelectorAll("[data-g]").forEach(function(cb) {
+  cb.addEventListener("change", function(e) {
+    fs.g[parseInt(e.target.dataset.g)] = e.target.checked;
+    upd();
+  });
+});
+
+document.getElementById("cityFilterBtn").addEventListener("click", openCityModal);
+document.getElementById("cityModalClose").addEventListener("click", closeCityModal);
+document.getElementById("cityShowAllBtn").addEventListener("click", function() {
+  fs.hiddenCities = {};
+  renderCityModal();
+  updateCityFilterButton();
+  upd();
+  fitMapToVisible();
+});
+document.getElementById("cityHideAllBtn").addEventListener("click", function() {
+  getActiveCityStats().forEach(function(stat) {
+    fs.hiddenCities[stat.key] = true;
+  });
+  renderCityModal();
+  updateCityFilterButton();
+  upd();
+  fitMapToVisible();
+});
+cityModalOverlay.addEventListener("click", function(e) {
+  if (e.target === cityModalOverlay) closeCityModal();
+});
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Escape" && cityModalOverlay.classList.contains("open")) {
+    closeCityModal();
+  }
+});
+// (legacy drag&drop city zone code removed — chip toggle UI is used now)
+
+// ========== Search input ==========
+var searchInput = document.getElementById("searchInput");
+var searchClear = document.getElementById("searchClear");
+var searchDebounceTimer = null;
+
+function applySearch() {
+  var raw = searchInput.value;
+  fs.q = normalizeForSearch(raw);
+  if (raw) searchClear.classList.add("show"); else searchClear.classList.remove("show");
+  upd();
+  // Auto-fit map to results when searching
+  if (fs.q) {
+    fitMapToVisible();
+  }
+}
+
+searchInput.addEventListener("input", function() {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(applySearch, 180);
+});
+
+searchInput.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") {
+    searchInput.value = "";
+    fs.q = "";
+    searchClear.classList.remove("show");
+    upd();
+  }
+});
+
+searchClear.addEventListener("click", function() {
+  searchInput.value = "";
+  fs.q = "";
+  searchClear.classList.remove("show");
+  searchInput.focus();
+  upd();
+});
+
+// ========== Build sidebar school list ==========
+function buildSchoolList() {
+  var container = document.getElementById("school-list");
+  container.innerHTML = "";
+
+  for (var p = 0; p < 6; p++) {
+    if (!fs.p[p]) continue;
+
+    var schools = [];
+    markers.forEach(function(m) {
+      if (m.p === p && isVisible(m)) {
+        schools.push(m);
+      }
+    });
+
+    if (schools.length === 0) continue;
+
+    var section = document.createElement("div");
+    section.className = "pref-section";
+
+    var header = document.createElement("div");
+    header.className = "pref-header";
+    header.innerHTML = '<div class="pref-name"><span class="pref-dot" style="background:' + PC[p] + '"></span>' + PN[p] + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px"><span class="pref-count">' + schools.length + '校</span><span class="arrow">&#9660;</span></div>';
+
+    var body = document.createElement("div");
+    body.className = "pref-body";
+
+    schools.forEach(function(m) {
+      var item = document.createElement("div");
+      item.className = "school-item";
+      item.dataset.idx = m.idx;
+      var typeSymbol = m.t === 0 ? "&#9679;" : "&#9675;";
+      item.innerHTML = '<span class="type-dot" style="color:' + PC[m.p] + '">' + typeSymbol + '</span> ' + m.name;
+
+      item.addEventListener("click", function() {
+        map.flyTo([m.lat, m.lng], 14, {duration: 1});
+        openPanel(m.idx);
+      });
+
+      item.addEventListener("mouseenter", function() {
+        m.marker.setStyle({radius: 9, weight: 3, fillOpacity: 1});
+        item.classList.add("highlighted");
+      });
+
+      item.addEventListener("mouseleave", function() {
+        m.marker.setStyle({
+          radius: 5,
+          weight: 2,
+          fillOpacity: m.t === 0 ? 0.95 : 1
+        });
+        item.classList.remove("highlighted");
+      });
+
+      body.appendChild(item);
+    });
+
+    header.addEventListener("click", function() {
+      var b = this.nextElementSibling;
+      b.classList.toggle("hidden");
+      this.classList.toggle("collapsed");
+    });
+
+    section.appendChild(header);
+    section.appendChild(body);
+    container.appendChild(section);
+  }
+}
+
+updateCityFilterButton();
+upd();
+
+// ========== Mobile toggle ==========
+document.getElementById("mobile-toggle").addEventListener("click", function() {
+  var sidebar = document.getElementById("sidebar");
+  sidebar.classList.toggle("collapsed");
+  this.textContent = sidebar.classList.contains("collapsed") ? "☰ 学校一覧" : "✕ 一覧を閉じる";
+  setTimeout(function() { map.invalidateSize(); }, 350);
+});
+
+// ========== PDF / print: per-prefecture "SCHOOL MAP" pages ==========
+var paMaps = [];
+
+function generatePDF() {
+  var btn = document.getElementById("pdfBtn");
+
+  // Collect currently-visible schools (respects prefecture/city/type/search filters)
+  var visible = markers.filter(function(m) {
+    return isVisible(m);
+  });
+  if (visible.length === 0) {
+    alert("表示中の学校がありません。フィルタや検索条件をご確認ください。");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "PDF生成中...";
+
+  var pa = document.getElementById("print-area");
+  pa.innerHTML = "";
+  var now = new Date();
+  var dstr = now.getFullYear() + "年" + (now.getMonth() + 1) + "月" + now.getDate() + "日";
+  var mapTargets = [];
+
+  // One page per (prefecture × area-region) that has visible schools — keeps each map readable.
+  var prefs = [0, 1, 2, 3, 4, 5];
+  prefs.forEach(function(p) {
+    var regionNames = RGNNAMES[p] || [""];
+    regionNames.forEach(function(regionName, ri) {
+      var region = { name: regionName };
+      var list = visible.filter(function(m) {
+        return m.p === p && (RGN[m.idx] === ri);
+      });
+      if (list.length === 0) return;
+
+      // Sort by municipality (in this region) then school name; number within the region
+      list.sort(function(a, b) {
+        var ca = CITY[a.idx] || "", cb = CITY[b.idx] || "";
+        if (ca !== cb) return ca.localeCompare(cb, "ja");
+        return a.name.localeCompare(b.name, "ja");
+      });
+      list.forEach(function(m, i) { m._num = i + 1; });
+
+      var page = document.createElement("div");
+      page.className = "pa-page";
+      var mapId = "pa-map-" + p + "-" + ri;
+      var col = PC[p];
+
+      // public = filled badge, private = outlined badge
+      function badgeStyle(t) {
+        return t === 0
+          ? "background:" + col + ";color:#fff;border-color:" + col
+          : "background:#fff;color:" + col + ";border-color:" + col;
+      }
+
+      var head = '<div class="pa-head">' +
+        '<span class="pa-title">' + PN[p] + '<span class="pa-rgn"> ' + region.name + '</span></span>' +
+        '<span class="pa-sub" style="background:' + col + '">' + list.length + '校</span>' +
+        '<span class="pa-leg">' +
+          '<span><i style="background:' + col + ';border:1.4px solid ' + col + '"></i>公立</span>' +
+          '<span><i style="background:#fff;border:1.4px solid ' + col + '"></i>私立</span>' +
+        '</span>' +
+        '<span class="pa-meta">' + dstr + ' 作成 ・ 番号は地図と一致</span></div>';
+
+      var listHtml = '<div class="pa-left">';
+      var curCity = null;
+      list.forEach(function(m) {
+        var c = CITY[m.idx] || "その他";
+        if (c !== curCity) {
+          if (curCity !== null) listHtml += '</div>';
+          listHtml += '<div class="pa-city"><h4>' + c + '</h4>';
+          curCity = c;
+        }
+        listHtml += '<div class="pa-item">' +
+          '<span class="pa-badge" style="' + badgeStyle(m.t) + '">' + m._num + '</span>' +
+          '<span class="pa-nm">' + m.name + '</span></div>';
+      });
+      if (curCity !== null) listHtml += '</div>';
+      listHtml += '</div>';
+
+      page.innerHTML = head +
+        '<div class="pa-body">' + listHtml +
+        '<div class="pa-map" id="' + mapId + '"></div></div>';
+      pa.appendChild(page);
+      mapTargets.push({ id: mapId, list: list, p: p });
+    });
+  });
+
+  var close = document.createElement("button");
+  close.id = "paClose";
+  close.textContent = "✕ 閉じる";
+  close.addEventListener("click", closePDF);
+  pa.appendChild(close);
+
+  pa.classList.add("show");
+
+  // Render one Leaflet map per prefecture (containers are now visible → size correctly)
+  paMaps = [];
+  mapTargets.forEach(function(t) {
+    var mp = L.map(t.id, { zoomControl: false, attributionControl: false, zoomSnap: 0 });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(mp);
+    var pts = [];
+    var col = PC[t.p];
+    t.list.forEach(function(m) {
+      // public = filled, private = hollow (white fill, colored ring + number)
+      var st = m.t === 0
+        ? "background:" + col + ";color:#fff;border:1.5px solid #fff"
+        : "background:#fff;color:" + col + ";border:2px solid " + col;
+      var icon = L.divIcon({
+        className: "pa-mk",
+        html: '<span style="' + st + '">' + m._num + '</span>',
+        iconSize: [20, 20], iconAnchor: [10, 10]
+      });
+      L.marker([m.lat, m.lng], { icon: icon }).addTo(mp);
+      pts.push([m.lat, m.lng]);
+    });
+    if (pts.length === 1) mp.setView(pts[0], 13);
+    else mp.fitBounds(L.latLngBounds(pts).pad(0.08));
+    paMaps.push(mp);
+  });
+
+  // Wait for tiles to settle, then open the print dialog
+  setTimeout(function() {
+    paMaps.forEach(function(mp) { mp.invalidateSize(); });
+    setTimeout(function() {
+      window.print();
+      btn.disabled = false;
+      btn.innerHTML = "&#x1F5A8; 表示中の一覧をPDF保存";
+    }, 1400);
+  }, 500);
+}
+
+function closePDF() {
+  var pa = document.getElementById("print-area");
+  pa.classList.remove("show");
+  paMaps.forEach(function(mp) { try { mp.remove(); } catch (e) {} });
+  paMaps = [];
+  pa.innerHTML = "";
+}
+
+document.getElementById("pdfBtn").addEventListener("click", generatePDF);
+
+// ========== School Detail Panel ==========
+var panel = document.getElementById("panel");
+var overlay = document.getElementById("overlay");
+
+// 学校位置から半径1.2km以内にある駅を路線ごとに集計（路線ごとに最短駅を1つ）
+function findNearbyLines(lat, lng) {
+  if (!RAIL_STATIONS || !RAIL_STATIONS.length) return [];
+  var rad = 1200;
+  var cosLat = Math.cos(lat * Math.PI / 180);
+  var byLine = {};
+  for (var i = 0; i < RAIL_STATIONS.length; i++) {
+    var s = RAIL_STATIONS[i];
+    var dy = (lat - s.lat) * 111000;
+    var dx = (lng - s.lng) * 111000 * cosLat;
+    var d2 = dx*dx + dy*dy;
+    if (d2 > rad*rad) continue;
+    var dist = Math.sqrt(d2);
+    var key = s.o + " " + s.l;
+    if (!byLine[key] || byLine[key].dist > dist) {
+      byLine[key] = { op: s.o, line: s.l, station: s.n, dist: dist };
+    }
+  }
+  return Object.values(byLine).sort(function(a,b){ return a.dist - b.dist; });
+}
+
+// 選択中の高校に波紋を出す
+var rippleMarker = null;
+function showRipple(lat, lng) {
+  if (rippleMarker) { map.removeLayer(rippleMarker); rippleMarker = null; }
+  var icon = L.divIcon({
+    className: 'ripple-icon',
+    html: '<span class="ripple r1"></span><span class="ripple r2"></span><span class="ripple-core"></span>',
+    iconSize: [60, 60],
+    iconAnchor: [30, 30]
+  });
+  rippleMarker = L.marker([lat, lng], { icon: icon, interactive: false, keyboard: false, zIndexOffset: 1000 }).addTo(map);
+}
+function hideRipple() {
+  if (rippleMarker) { map.removeLayer(rippleMarker); rippleMarker = null; }
+}
+
+// JR西日本通称・略称・愛称を正式線名に正規化
+function normalizeLineName(text) {
+  if (!text) return text;
+  // 順序重要: より具体的なルールから先に置換すること
+  var rules = [
+    // === JR西の旅客愛称（東海道線区間分割） ===
+    [/JR\s*琵琶湖線/g, "東海道線(米原〜京都)"],
+    [/JR\s*京都線/g,   "東海道線(京都〜大阪)"],
+    [/JR\s*神戸線/g,   "東海道線(大阪〜姫路)"],
+    [/JR\s*宝塚線/g,   "福知山線"],
+    [/JR\s*学研都市線/g, "片町線"],
+    [/JR\s*ゆめ咲線/g, "桜島線"],
+    [/JR\s*大和路線/g, "関西線"],
+    [/大和路線/g,      "関西線"],
+    [/JR\s*万葉まほろば線/g, "桜井線"],
+    [/万葉まほろば線/g, "桜井線"],
+    [/JR\s*嵯峨野線/g, "山陰線"],
+    [/きのくに線/g,    "紀勢線"],
+    // === 大阪環状線（「JR大阪環状線」「JR環状線」両対応） ===
+    [/JR\s*大阪環状線/g, "大阪環状線"],
+    [/JR\s*環状線/g,   "大阪環状線"],
+    // === JRプレフィックスのみ除去（地方JR西路線） ===
+    [/JR\s*奈良線/g,   "奈良線"],
+    [/JR\s*山陰本線/g, "山陰線"],
+    [/JR\s*山陰線/g,   "山陰線"],
+    [/JR\s*福知山線/g, "福知山線"],
+    [/JR\s*湖西線/g,   "湖西線"],
+    [/JR\s*山陽本線/g, "山陽線"],
+    [/JR\s*山陽線/g,   "山陽線"],
+    [/JR\s*北陸本線/g, "北陸線"],
+    [/JR\s*北陸線/g,   "北陸線"],
+    [/JR\s*舞鶴線/g,   "舞鶴線"],
+    [/JR\s*草津線/g,   "草津線"],
+    [/JR\s*和歌山線/g, "和歌山線"],
+    [/JR\s*赤穂線/g,   "赤穂線"],
+    [/JR\s*姫新線/g,   "姫新線"],
+    [/JR\s*加古川線/g, "加古川線"],
+    [/JR\s*播但線/g,   "播但線"],
+    [/JR\s*関西本線/g, "関西線"],
+    [/JR\s*関西線/g,   "関西線"],
+    [/JR\s*東海道本線/g, "東海道線"],
+    [/JR\s*東海道線/g, "東海道線"],
+    [/JR\s*東西線/g,   "JR東西線"],   // JR東西線は正式名そのまま
+    [/JR\s*阪和線/g,   "阪和線"],
+    [/JR\s*おおさか東線/g, "おおさか東線"]
+  ];
+  var out = text;
+  rules.forEach(function(r){ out = out.replace(r[0], r[1]); });
+  return out;
+}
+
+function openPanel(idx) {
+  var m = markers[idx];
+  document.getElementById("pName").textContent = m.name + "高等学校";
+  var gName = ["共学", "男子校", "女子校"][GENDER[m.idx]];
+  document.getElementById("pMeta").textContent = m.pn + " | " + m.tn + " | " + gName;
+
+  var accBody = document.getElementById("accBody");
+  var acc = ACC[m.name];
+  var gmapQuery = encodeURIComponent(m.name + "高等学校");
+  var gmapUrl = "https://www.google.com/maps/search/?api=1&query=" + gmapQuery + "&query_place_id=&center=" + m.lat + "," + m.lng;
+  var gmapLink = '<a class="acc-link gmap" href="' + gmapUrl + '" target="_blank" rel="noopener">📍 Google Mapで表示</a>';
+  if (acc) {
+    var html = '<div class="acc-item">';
+    if (acc.s) html += '<b>最寄駅:</b> ' + acc.s + '<br>';
+    if (acc.l) html += '<b>路線:</b> ' + normalizeLineName(acc.l) + '<br>';
+    if (acc.w) html += '<b>徒歩:</b> ' + acc.w + '<br>';
+    if (acc.b) html += '<b>バス:</b> ' + normalizeLineName(acc.b) + '<br>';
+    var links = '<div class="acc-links">';
+    if (acc.u) links += '<a class="acc-link" href="' + acc.u + '" target="_blank" rel="noopener">公式アクセスページ</a>';
+    links += gmapLink + '</div>';
+    html += links + '</div>';
+    accBody.innerHTML = html;
+    document.getElementById("accSec").style.display = "";
+  } else {
+    accBody.innerHTML = '<div class="acc-item">' + gmapLink + '</div>';
+    document.getElementById("accSec").style.display = "";
+  }
+
+  // 沿線情報セクション
+  var lines = findNearbyLines(m.lat, m.lng);
+  var alongSec = document.getElementById("alongSec");
+  if (lines.length) {
+    var html2 = '<div class="acc-item" style="font-size:12px;color:var(--ink-soft);margin-bottom:8px">最寄駅から1.2km以内</div><ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:5px">';
+    lines.forEach(function(l){
+      var col = (typeof OP_COLOR !== "undefined" && OP_COLOR[l.op]) ? OP_COLOR[l.op] : "var(--ink-faint)";
+      html2 += '<li style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--border-soft)">' +
+        '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+col+';flex-shrink:0"></span>' +
+        '<span style="flex:1;font-size:12.5px;font-weight:700;color:var(--ink)">'+l.op+' '+l.line+'</span>' +
+        '<span style="font-size:11px;color:var(--ink-soft)">'+l.station+'駅 '+(l.dist/1000).toFixed(2)+'km</span>' +
+        '</li>';
+    });
+    html2 += '</ul>';
+    document.getElementById("alongBody").innerHTML = html2;
+    alongSec.style.display = "";
+  } else {
+    document.getElementById("alongBody").innerHTML = '<div class="acc-item" style="font-size:12px;color:var(--ink-faint)">最寄駅から1.2km以内に該当路線なし</div>';
+    alongSec.style.display = "";
+  }
+
+  // 波紋エフェクト
+  showRipple(m.lat, m.lng);
+  // 地図をその学校にフォーカス（panel展開で右領域が狭くなるが、ぼかしはしない）
+  map.flyTo([m.lat, m.lng], Math.max(map.getZoom(), 14), { duration: 0.8 });
+
+  panel.classList.add("open");
+  // overlay (地図ぼかし) は出さない
+}
+
+function closePanel() {
+  panel.classList.remove("open");
+  overlay.classList.remove("open");
+  hideRipple();
+}
+
+document.getElementById("pc").addEventListener("click", closePanel);
+overlay.addEventListener("click", closePanel);
+
+// ================== 路線セレクター & 光の粒子 ==================
+var RAIL_LINES = [];      // [{op, line, segs:[[[lng,lat],...],...]}]
+var RAIL_SELECTED = {};   // key "op|line" -> bool
+var railPolylines = [];   // 描画中のPolyline
+var railFlowCanvas = document.getElementById("rail-flow-canvas");
+var railFlowCtx = railFlowCanvas.getContext("2d");
+var railParticles = [];
+var railFlowRunning = false;
+
+// 事業者→色（光の粒子色）
+var OP_COLOR = {
+  "西日本旅客鉄道": "#5BA4E6",
+  "東海旅客鉄道": "#F08585",
+  "近畿日本鉄道": "#A893E0",
+  "南海電気鉄道": "#5DC5D6",
+  "京阪電気鉄道": "#6FC9A7",
+  "阪急電鉄": "#F4A66E",
+  "阪神電気鉄道": "#F08585",
+  "山陽電気鉄道": "#5DC5D6",
+  "神戸電鉄": "#6FC9A7",
+  "大阪市高速電気軌道": "#5BA4E6",
+  "京都市": "#A893E0",
+  "神戸新交通": "#5DC5D6",
+  "阪堺電気軌道": "#F4A66E"
+};
+function opColor(op) { return OP_COLOR[op] || "#FF8B7B"; }
+
+// 鉄道路線データを fetch
+fetch("rail_lines.json").then(function(r){return r.json();}).then(function(d){
+  RAIL_LINES = d;
+  splitTokaidoSanyo();
+});
+
+// 東海道線(西日本)を3区間に分割。大阪〜姫路には山陽線(神戸〜姫路)も含める
+function splitTokaidoSanyo() {
+  // 経度しきい値
+  var LNG_KYOTO = 135.7615;  // 京都駅
+  var LNG_OSAKA = 135.5023;  // 大阪駅
+  var LNG_HIMEJI = 134.6904; // 姫路駅
+  function midLng(seg) { return seg[Math.floor(seg.length/2)][0]; }
+
+  // 東海道線
+  var t = RAIL_LINES.find(function(l){ return l.op==="西日本旅客鉄道" && l.line==="東海道線"; });
+  if (!t) return;
+  var biwa=[], kyoto=[], kobe=[];
+  t.segs.forEach(function(s){
+    var x = midLng(s);
+    if (x >= LNG_KYOTO) biwa.push(s);
+    else if (x >= LNG_OSAKA) kyoto.push(s);
+    else kobe.push(s);
+  });
+  // 山陽線(西日本) -> 神戸〜姫路区間を kobe に追加、姫路以西は山陽線として残す
+  var s = RAIL_LINES.find(function(l){ return l.op==="西日本旅客鉄道" && l.line==="山陽線"; });
+  var sanyoWest = [];
+  if (s) {
+    s.segs.forEach(function(seg){
+      var x = midLng(seg);
+      if (x > LNG_HIMEJI && x < LNG_OSAKA) kobe.push(seg);
+      else sanyoWest.push(seg);
+    });
+  }
+  // 元エントリを除去
+  RAIL_LINES = RAIL_LINES.filter(function(l){
+    return !(l.op==="西日本旅客鉄道" && (l.line==="東海道線" || l.line==="山陽線"));
+  });
+  // 分割後を追加
+  if (biwa.length)  RAIL_LINES.push({op:"西日本旅客鉄道", line:"東海道線(米原〜京都)", segs:biwa});
+  if (kyoto.length) RAIL_LINES.push({op:"西日本旅客鉄道", line:"東海道線(京都〜大阪)", segs:kyoto});
+  if (kobe.length)  RAIL_LINES.push({op:"西日本旅客鉄道", line:"東海道線(大阪〜姫路)", segs:kobe});
+  if (sanyoWest.length) RAIL_LINES.push({op:"西日本旅客鉄道", line:"山陽線", segs:sanyoWest});
+}
+
+// モーダル開閉
+var railModalOverlay = document.getElementById("railModalOverlay");
+var railModalBody = document.getElementById("railModalBody");
+var railSearchInput = document.getElementById("railSearchInput");
+
+function openRailModal() {
+  railModalOverlay.classList.add("open");
+  renderRailModal();
+}
+function closeRailModal() {
+  railModalOverlay.classList.remove("open");
+}
+document.getElementById("railFilterBtn").addEventListener("click", openRailModal);
+document.getElementById("railModalClose").addEventListener("click", closeRailModal);
+railModalOverlay.addEventListener("click", function(e){ if(e.target===railModalOverlay) closeRailModal(); });
+document.getElementById("railClearBtn").addEventListener("click", function(){
+  RAIL_SELECTED = {};
+  renderRailModal();
+  updateRailSummary();
+  updateRailLayers();
+});
+railSearchInput.addEventListener("input", function(){ renderRailModal(); });
+
+function renderRailModal() {
+  if (!RAIL_LINES.length) {
+    railModalBody.innerHTML = '<div style="text-align:center;color:var(--ink-faint);padding:30px">読み込み中...</div>';
+    return;
+  }
+  var q = (railSearchInput.value || "").trim();
+  // 事業者でグルーピング
+  var byOp = {};
+  RAIL_LINES.forEach(function(l){
+    var key = l.op + "|" + l.line;
+    if (q && !(l.line.indexOf(q)>=0 || l.op.indexOf(q)>=0)) return;
+    if (!byOp[l.op]) byOp[l.op] = [];
+    byOp[l.op].push({ line: l.line, key: key });
+  });
+  // 主要事業者を先頭に
+  var orderPriority = ["西日本旅客鉄道","東海旅客鉄道","近畿日本鉄道","南海電気鉄道","京阪電気鉄道","阪急電鉄","阪神電気鉄道","山陽電気鉄道","神戸電鉄","大阪市高速電気軌道","京都市","神戸新交通","阪堺電気軌道"];
+  var ops = Object.keys(byOp).sort(function(a,b){
+    var ia = orderPriority.indexOf(a); var ib = orderPriority.indexOf(b);
+    if (ia<0) ia=999; if (ib<0) ib=999;
+    if (ia!==ib) return ia-ib;
+    return a.localeCompare(b);
+  });
+  var html = "";
+  ops.forEach(function(op){
+    var col = opColor(op);
+    html += '<section style="border:1.5px solid var(--border);border-radius:var(--r);background:var(--surface-2);padding:10px 12px">' +
+      '<h3 style="font-size:12px;font-weight:800;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:'+col+'"></span>'+op+' <span style="color:var(--ink-soft);font-weight:600;font-size:11px">('+byOp[op].length+'路線)</span></h3>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+    byOp[op].sort(function(a,b){return a.line.localeCompare(b.line);}).forEach(function(li){
+      var on = !!RAIL_SELECTED[li.key];
+      var bg = on ? col : "var(--surface)";
+      var color = on ? "#fff" : "var(--ink-soft)";
+      var border = on ? col : "var(--border)";
+      html += '<button type="button" data-rail-key="'+li.key+'" class="rail-chip" style="padding:5px 12px;border-radius:var(--r-pill);border:1.5px solid '+border+';background:'+bg+';color:'+color+';font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s">'+li.line+'</button>';
+    });
+    html += '</div></section>';
+  });
+  railModalBody.innerHTML = html;
+  railModalBody.querySelectorAll(".rail-chip").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var k = btn.dataset.railKey;
+      RAIL_SELECTED[k] = !RAIL_SELECTED[k];
+      if (!RAIL_SELECTED[k]) delete RAIL_SELECTED[k];
+      renderRailModal();
+      updateRailSummary();
+      updateRailLayers();
+    });
+  });
+}
+
+function updateRailSummary() {
+  var n = Object.keys(RAIL_SELECTED).length;
+  document.getElementById("railFilterSummary").textContent = n===0 ? "未選択" : (n + "路線を光らせる");
+}
+
+// 選択路線のPolyline描画＋粒子データ更新
+// 駅データ（沿線モード用）
+var RAIL_STATIONS = [];
+fetch("rail_stations.json").then(function(r){return r.json();}).then(function(d){
+  // 東海道線/山陽線の駅も同じ経度しきい値で区間分け
+  var LNG_KYOTO = 135.7615, LNG_OSAKA = 135.5023, LNG_HIMEJI = 134.6904;
+  d.forEach(function(s){
+    if (s.o !== "西日本旅客鉄道") return;
+    if (s.l === "東海道線") {
+      if (s.lng >= LNG_KYOTO) s.l = "東海道線(米原〜京都)";
+      else if (s.lng >= LNG_OSAKA) s.l = "東海道線(京都〜大阪)";
+      else s.l = "東海道線(大阪〜姫路)";
+    } else if (s.l === "山陽線") {
+      if (s.lng > LNG_HIMEJI && s.lng < LNG_OSAKA) s.l = "東海道線(大阪〜姫路)";
+      // それ以外(姫路以西)は山陽線のまま
+    }
+  });
+  RAIL_STATIONS = d;
+  if (fs.alongRail) refreshAlongRail();
+});
+
+// 沿線モード用の駅円
+var alongRailCircles = [];
+function refreshAlongRail() {
+  // 既存円を削除
+  alongRailCircles.forEach(function(c){ map.removeLayer(c); });
+  alongRailCircles = [];
+  // 選択路線に該当する駅を抽出（事業者+路線名で一致）
+  var selectedStations = RAIL_STATIONS.filter(function(s){
+    var k = s.o + "|" + s.l;
+    return !!RAIL_SELECTED[k];
+  });
+  // 同名・近隣駅の重複は許容（円描画には軽微）
+  if (fs.alongRail && selectedStations.length) {
+    selectedStations.forEach(function(s){
+      var c = L.circle([s.lat, s.lng], {
+        radius: 1200,
+        color: "#7DD8C0",
+        weight: 1,
+        fillColor: "#7DD8C0",
+        fillOpacity: 0.10,
+        interactive: false
+      }).addTo(map);
+      alongRailCircles.push(c);
+    });
+  }
+  window._alongRailStations = selectedStations;
+  upd();
+  // フィルタ件数を見せる
+  var hintEl = document.getElementById("alongRailHint");
+  if (hintEl) {
+    if (fs.alongRail) {
+      hintEl.style.display = "block";
+    } else {
+      hintEl.style.display = "none";
+    }
+  }
+}
+
+function updateRailLayers() {
+  railPolylines.forEach(function(p){ map.removeLayer(p); });
+  railPolylines = [];
+  railParticles = [];
+  var selectedSegs = [];  // [{op,segs:[[ll,...],...]}]
+  RAIL_LINES.forEach(function(l){
+    var key = l.op + "|" + l.line;
+    if (!RAIL_SELECTED[key]) return;
+    var col = opColor(l.op);
+    l.segs.forEach(function(s){
+      // [lng,lat] → [lat,lng]
+      var latlngs = s.map(function(c){ return [c[1], c[0]]; });
+      var pl = L.polyline(latlngs, { color: col, weight: 3.2, opacity: 0.7, lineCap: "round", lineJoin: "round" }).addTo(map);
+      railPolylines.push(pl);
+      // 粒子用にセグメント保存
+      selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
+    });
+  });
+  window._railSegs = selectedSegs;
+  if (!railFlowRunning) startRailFlow();
+  // 沿線モードがONなら駅円も更新
+  refreshAlongRail();
+}
+
+// 沿線モードトグル
+document.getElementById("alongRailToggle").addEventListener("change", function(e){
+  fs.alongRail = e.target.checked;
+  refreshAlongRail();
+});
+
+function resizeRailCanvas() {
+  var mc = document.getElementById("map");
+  var b = mc.getBoundingClientRect();
+  railFlowCanvas.width = b.width;
+  railFlowCanvas.height = b.height;
+  railFlowCanvas.style.left = b.left + "px";
+  railFlowCanvas.style.top = b.top + "px";
+  railFlowCanvas.style.width = b.width + "px";
+  railFlowCanvas.style.height = b.height + "px";
+}
+resizeRailCanvas();
+window.addEventListener("resize", resizeRailCanvas);
+map.on("move zoom moveend zoomend resize", resizeRailCanvas);
+
+function startRailFlow() {
+  railFlowRunning = true;
+  requestAnimationFrame(railLoop);
+}
+
+function railLoop() {
+  railFlowCtx.clearRect(0, 0, railFlowCanvas.width, railFlowCanvas.height);
+  var segs = window._railSegs || [];
+  if (segs.length === 0) { railFlowRunning = false; return; }
+  // 新規粒子を発生（各セグメントで一定確率）
+  if (railParticles.length < 800) {
+    segs.forEach(function(seg){
+      if (Math.random() < 0.08) {
+        railParticles.push({ seg: seg, idx: 0, t: 0, speed: 0.012 + Math.random() * 0.018 });
+      }
+    });
+  }
+  // 粒子更新+描画
+  railParticles = railParticles.filter(function(p){
+    var pts = p.seg.latlngs;
+    if (p.idx >= pts.length - 1) return false;
+    p.t += p.speed;
+    while (p.t >= 1) { p.t -= 1; p.idx++; if (p.idx >= pts.length - 1) return false; }
+    var a = pts[p.idx], b = pts[p.idx + 1];
+    var lat = a[0] + (b[0] - a[0]) * p.t;
+    var lng = a[1] + (b[1] - a[1]) * p.t;
+    var pp = map.latLngToContainerPoint([lat, lng]);
+    var col = p.seg.color;
+    // グロー
+    var g = railFlowCtx.createRadialGradient(pp.x, pp.y, 0, pp.x, pp.y, 8);
+    g.addColorStop(0, hexA(col, 0.95));
+    g.addColorStop(0.4, hexA(col, 0.55));
+    g.addColorStop(1, hexA(col, 0));
+    railFlowCtx.fillStyle = g;
+    railFlowCtx.beginPath();
+    railFlowCtx.arc(pp.x, pp.y, 8, 0, Math.PI * 2);
+    railFlowCtx.fill();
+    // 中心輝点
+    railFlowCtx.fillStyle = "rgba(255,255,255,0.95)";
+    railFlowCtx.beginPath();
+    railFlowCtx.arc(pp.x, pp.y, 1.7, 0, Math.PI * 2);
+    railFlowCtx.fill();
+    return true;
+  });
+  requestAnimationFrame(railLoop);
+}
+
+function hexA(hex, alpha) {
+  var h = hex.replace("#","");
+  var r = parseInt(h.substr(0,2),16);
+  var g = parseInt(h.substr(2,2),16);
+  var b = parseInt(h.substr(4,2),16);
+  return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+}
+
+})();
+</script>
+</body>
+</html>

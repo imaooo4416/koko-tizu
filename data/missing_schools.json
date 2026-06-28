@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "total_target": 692,
+    "current_count": 688,
+    "note": "Schools not yet present in current index.html, by prefecture. Use this to add coordinates and ACC data in future sessions."
+  },
+  "missing": {
+    "大阪府": {
+      "public": [
+        {
+          "name": "花園",
+          "city": "東大阪市"
+        }
+      ]
+    },
+    "京都府": {
+      "public": [
+        {
+          "name": "紫野(市立)",
+          "city": "京都市"
+        },
+        {
+          "name": "宮津天橋(宮津)",
+          "city": "宮津市"
+        },
+        {
+          "name": "京都堀川音楽",
+          "city": "京都市"
+        }
+      ]
+    }
+  },
+  "existing_naming_conflicts": {
+    "大阪府": [
+      "泉佐野",
+      "大東",
+      "柏原東",
+      "河内長野",
+      "大阪狭山"
+    ],
+    "兵庫県": [],
+    "京都府": [
+      "堀川音楽",
+      "紫野",
+      "宮津天橋"
+    ],
+    "奈良県": [],
+    "滋賀県": []
+  }
+}
