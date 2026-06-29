@@ -80,6 +80,21 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 
 /* School list */
 #school-list{flex:1;overflow-y:auto;overflow-x:hidden;padding:4px 0}
+
+/* Notebook-tab style switcher for HS / Univ list */
+.kind-tabs{display:flex;gap:4px;padding:6px 12px 0;align-items:flex-end;position:relative}
+.kind-tabs::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:2px;background:var(--accent);pointer-events:none}
+.kind-tab{position:relative;flex:1;padding:9px 12px;border:1.5px solid var(--border);border-bottom:0;border-radius:10px 10px 0 0;background:var(--surface-2);color:var(--ink-soft);font-weight:700;cursor:pointer;font-family:inherit;font-size:13px;transition:transform .12s var(--ease),background .18s var(--ease),color .18s var(--ease);display:flex;align-items:center;justify-content:center;gap:5px;letter-spacing:.3px}
+.kind-tab:hover:not(.active){background:#fff;transform:translateY(-1px)}
+.kind-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);transform:translateY(2px);z-index:1;box-shadow:0 -2px 6px rgba(0,0,0,.06)}
+.kind-tab .tab-icon{font-size:12px}
+.kind-tab .tab-count{font-size:11px;opacity:.9;padding:1px 7px;border-radius:var(--r-pill);background:rgba(0,0,0,.08)}
+.kind-tab.active .tab-count{background:rgba(255,255,255,.25)}
+
+/* 学校種別バッジ (右パネル) */
+.kind-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--r-pill);margin-right:8px;vertical-align:middle;letter-spacing:.3px}
+.kind-badge-hs{background:var(--accent-soft);color:var(--accent)}
+.kind-badge-univ{background:#3b6cb620;color:#3b6cb6}
 #school-list::-webkit-scrollbar{width:6px}
 #school-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 #school-list::-webkit-scrollbar-thumb:hover{background:var(--accent-soft)}
@@ -393,6 +408,10 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
           (不動産公正取引協議会連合会「不動産の表示に関する公正競争規約」第15条の徒歩所要時間基準)
         </div>
       </div>
+    </div>
+    <div id="school-list-tabs" class="kind-tabs">
+      <button type="button" class="kind-tab active" data-tab-kind="0"><span class="tab-icon">&#9679;</span> 高校 <span class="tab-count" id="tabCountHS">0</span></button>
+      <button type="button" class="kind-tab" data-tab-kind="1"><span class="tab-icon">&#9670;</span> 大学 <span class="tab-count" id="tabCountUniv">0</span></button>
     </div>
     <div id="school-list"></div>
   </div>
@@ -1698,13 +1717,9 @@ S.forEach(function(s, i) {
     this.setStyle({radius: 5, weight: 2});
   });
 
-  marker.on("click", function() {
-    openPanel(i);
-  });
-
   marker.addTo(markerLayer);
 
-  markers.push({
+  var hsEntry = {
     marker: marker,
     kind: 0, // 0=高校
     p: pref,
@@ -1719,7 +1734,9 @@ S.forEach(function(s, i) {
     lat: lat,
     lng: lng,
     idx: i
-  });
+  };
+  markers.push(hsEntry);
+  marker.on("click", function() { openPanel(hsEntry); });
 });
 
 // ========== Create university markers (◆◇ diamond shape) ==========
@@ -1780,7 +1797,7 @@ U.forEach(function(u, ui) {
   marker.on("mouseout", function(){ this.closePopup(); });
   marker.addTo(markerLayer);
 
-  univMarkers.push({
+  var univEntry = {
     marker: marker,
     kind: 1, // 1=大学
     p: pref,
@@ -1795,7 +1812,9 @@ U.forEach(function(u, ui) {
     lat: lat,
     lng: lng,
     idx: ui
-  });
+  };
+  univMarkers.push(univEntry);
+  marker.on("click", function() { openPanel(univEntry); });
 });
 // Merge into markers so existing iteration code can include universities
 univMarkers.forEach(function(um){ markers.push(um); });
@@ -2318,92 +2337,84 @@ searchClear.addEventListener("click", function() {
 });
 
 // ========== Build sidebar school list ==========
+// 学校リストのタブ状態 (0=高校 / 1=大学)
+var activeListKind = 0;
+
+function makeListItem(m) {
+  var item = document.createElement("div");
+  item.className = "school-item";
+  item.dataset.idx = m.idx;
+  var isUniv = m.kind === 1;
+  var typeSymbol = isUniv
+    ? (m.ut === 0 ? "&#9670;" : "&#9671;")
+    : (m.t === 0 ? "&#9679;" : "&#9675;");
+  item.innerHTML = '<span class="type-dot" style="color:' + PC[m.p] + '">' + typeSymbol + '</span> ' + m.name;
+
+  item.addEventListener("click", function() {
+    map.flyTo([m.lat, m.lng], 14, {duration: 1});
+    openPanel(m);
+  });
+
+  if (!isUniv) {
+    item.addEventListener("mouseenter", function() {
+      m.marker.setStyle({radius: 9, weight: 3, fillOpacity: 1});
+      item.classList.add("highlighted");
+    });
+    item.addEventListener("mouseleave", function() {
+      m.marker.setStyle({radius: 5, weight: 2, fillOpacity: m.t === 0 ? 0.95 : 1});
+      item.classList.remove("highlighted");
+    });
+  } else {
+    item.addEventListener("mouseenter", function() {
+      item.classList.add("highlighted");
+      m.marker.openPopup();
+    });
+    item.addEventListener("mouseleave", function() {
+      item.classList.remove("highlighted");
+      m.marker.closePopup();
+    });
+  }
+  return item;
+}
+
 function buildSchoolList() {
   var container = document.getElementById("school-list");
   container.innerHTML = "";
 
-  function makeItem(m) {
-    var item = document.createElement("div");
-    item.className = "school-item";
-    item.dataset.idx = m.idx;
-    var isUniv = m.kind === 1;
-    var typeSymbol = isUniv
-      ? (m.ut === 0 ? "&#9670;" : "&#9671;")
-      : (m.t === 0 ? "&#9679;" : "&#9675;");
-    item.innerHTML = '<span class="type-dot" style="color:' + PC[m.p] + '">' + typeSymbol + '</span> ' + m.name;
-
-    item.addEventListener("click", function() {
-      map.flyTo([m.lat, m.lng], 14, {duration: 1});
-      if (!isUniv) openPanel(m.idx);
-      else m.marker.openPopup();
-    });
-
-    if (!isUniv) {
-      item.addEventListener("mouseenter", function() {
-        m.marker.setStyle({radius: 9, weight: 3, fillOpacity: 1});
-        item.classList.add("highlighted");
-      });
-      item.addEventListener("mouseleave", function() {
-        m.marker.setStyle({radius: 5, weight: 2, fillOpacity: m.t === 0 ? 0.95 : 1});
-        item.classList.remove("highlighted");
-      });
-    } else {
-      item.addEventListener("mouseenter", function() {
-        item.classList.add("highlighted");
-        m.marker.openPopup();
-      });
-      item.addEventListener("mouseleave", function() {
-        item.classList.remove("highlighted");
-        m.marker.closePopup();
-      });
-    }
-    return item;
-  }
-
-  function appendSubsection(body, arr, label, iconHtml) {
-    if (!arr.length) return;
-    var sub = document.createElement("div");
-    sub.className = "kind-subsection";
-    var subHeader = document.createElement("div");
-    subHeader.className = "kind-header";
-    subHeader.innerHTML = '<span class="kind-label"><span class="kind-icon">' + iconHtml + '</span>' + label + '</span>' +
-      '<span class="kind-count">' + arr.length + '</span>';
-    var grid = document.createElement("div");
-    grid.className = "kind-grid";
-    arr.forEach(function(m){ grid.appendChild(makeItem(m)); });
-    sub.appendChild(subHeader);
-    sub.appendChild(grid);
-    body.appendChild(sub);
-  }
+  // 全体カウント (フィルタ適用後) を更新してタブに反映
+  var totalHS = 0, totalUniv = 0;
+  markers.forEach(function(m){
+    if (!isVisible(m)) return;
+    if (m.kind === 1) totalUniv++; else totalHS++;
+  });
+  var ctH = document.getElementById("tabCountHS");
+  var ctU = document.getElementById("tabCountUniv");
+  if (ctH) ctH.textContent = totalHS;
+  if (ctU) ctU.textContent = totalUniv;
 
   for (var p = 0; p < 6; p++) {
     if (!fs.p[p]) continue;
 
-    var hsList = [];
-    var univList = [];
+    var list = [];
     markers.forEach(function(m) {
       if (m.p !== p || !isVisible(m)) return;
-      if (m.kind === 1) univList.push(m);
-      else hsList.push(m);
+      if (m.kind !== activeListKind) return;
+      list.push(m);
     });
-    if (hsList.length + univList.length === 0) continue;
+    if (list.length === 0) continue;
 
     var section = document.createElement("div");
     section.className = "pref-section";
 
     var header = document.createElement("div");
     header.className = "pref-header";
-    var countHtml = "";
-    if (hsList.length) countHtml += '<span class="pref-count">高 ' + hsList.length + '</span>';
-    if (univList.length) countHtml += '<span class="pref-count">大 ' + univList.length + '</span>';
     header.innerHTML = '<div class="pref-name"><span class="pref-dot" style="background:' + PC[p] + '"></span>' + PN[p] + '</div>' +
-      '<div style="display:flex;align-items:center;gap:4px">' + countHtml + '<span class="arrow" style="margin-left:4px">&#9660;</span></div>';
+      '<div style="display:flex;align-items:center;gap:8px"><span class="pref-count">' + list.length + (activeListKind === 1 ? "校" : "校") + '</span><span class="arrow">&#9660;</span></div>';
 
     var body = document.createElement("div");
-    body.className = "pref-body";
+    body.className = "pref-body kind-grid";
 
-    appendSubsection(body, hsList, "高校", "&#9679;");
-    appendSubsection(body, univList, "大学", "&#9670;");
+    list.forEach(function(m){ body.appendChild(makeListItem(m)); });
 
     header.addEventListener("click", function() {
       var b = this.nextElementSibling;
@@ -2416,6 +2427,19 @@ function buildSchoolList() {
     container.appendChild(section);
   }
 }
+
+// タブ切り替え
+document.querySelectorAll(".kind-tab").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    var k = parseInt(btn.dataset.tabKind, 10);
+    if (k === activeListKind) return;
+    activeListKind = k;
+    document.querySelectorAll(".kind-tab").forEach(function(b){
+      b.classList.toggle("active", parseInt(b.dataset.tabKind, 10) === activeListKind);
+    });
+    buildSchoolList();
+  });
+});
 
 updateCityFilterButton();
 upd();
@@ -2702,15 +2726,27 @@ function normalizeLineName(text) {
   return out;
 }
 
-function openPanel(idx) {
-  var m = markers[idx];
-  document.getElementById("pName").textContent = m.name + "高等学校";
-  var gName = ["共学", "男子校", "女子校"][GENDER[m.idx]];
-  document.getElementById("pMeta").textContent = m.pn + " | " + m.tn + " | " + gName;
+function openPanel(arg) {
+  // arg can be a marker entry object (preferred) or a numeric index for backward compat
+  var m = (typeof arg === "number") ? markers[arg] : arg;
+  if (!m) return;
+  var isUniv = m.kind === 1;
+
+  // 名前 + バッジ (高校 / 大学)
+  var badgeHtml = isUniv
+    ? '<span class="kind-badge kind-badge-univ">大学</span>'
+    : '<span class="kind-badge kind-badge-hs">高校</span>';
+  var displayName = isUniv ? m.name : (m.name + "高等学校");
+  document.getElementById("pName").innerHTML = badgeHtml + displayName;
+
+  // メタ情報 (大学は別学なし)
+  var metaParts = [m.pn, m.tn];
+  if (!isUniv) metaParts.push(["共学", "男子校", "女子校"][GENDER[m.idx]]);
+  document.getElementById("pMeta").textContent = metaParts.join(" | ");
 
   var accBody = document.getElementById("accBody");
-  var acc = ACC[m.name];
-  var gmapQuery = encodeURIComponent(m.name + "高等学校");
+  var acc = isUniv ? UACC[m.name] : ACC[m.name];
+  var gmapQuery = encodeURIComponent(displayName);
   var gmapUrl = "https://www.google.com/maps/search/?api=1&query=" + gmapQuery + "&query_place_id=&center=" + m.lat + "," + m.lng;
   var gmapLink = '<a class="acc-link gmap" href="' + gmapUrl + '" target="_blank" rel="noopener">📍 Google Mapで表示</a>';
   if (acc) {
@@ -2720,7 +2756,7 @@ function openPanel(idx) {
     if (acc.w) html += '<b>徒歩:</b> ' + acc.w + '<br>';
     if (acc.b) html += '<b>バス:</b> ' + normalizeLineName(acc.b) + '<br>';
     var links = '<div class="acc-links">';
-    if (acc.u) links += '<a class="acc-link" href="' + acc.u + '" target="_blank" rel="noopener">公式アクセスページ</a>';
+    if (acc.u) links += '<a class="acc-link" href="' + acc.u + '" target="_blank" rel="noopener">公式' + (isUniv ? 'サイト' : 'アクセスページ') + '</a>';
     links += gmapLink + '</div>';
     html += links + '</div>';
     accBody.innerHTML = html;
