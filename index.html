@@ -1648,8 +1648,18 @@ function featuresToHoles(features) {
 
 function drawAdminClip(ctx) {
   clearAdminClip();
-  // empty / null / 空features は確実にクリアして終了
-  if (!ctx || ctx.type === "empty" || !ctx.features || !ctx.features.length) return;
+  if (!ctx) return;
+  // empty / 空features の時は holes なしの全画面マスクのみ
+  if (ctx.type === "empty" || !ctx.features || !ctx.features.length) {
+    adminMaskLayer = L.polygon([WORLD_RING], {
+      pane: "adminMaskPane",
+      color: "#1a2540", fillColor: "#1a2540",
+      fillOpacity: 0.50,
+      stroke: false, interactive: false,
+      className: "admin-mask-poly"
+    }).addTo(map);
+    return;
+  }
   var holes = featuresToHoles(ctx.features);
   // pref-with-holes モード: 除外市区町村を「穴の中の穴」として追加
   // evenodd fill ruleで偶数回ネストすると塗りつぶされる→マスク色に戻る
