@@ -2637,8 +2637,8 @@ function updateRailLayers() {
       var line = L.polyline(latlngs, {
         color: col, weight: 6, opacity: 1.0,
         lineCap: "round", lineJoin: "round",
-        // dash 0px + 隙間 18px、lineCap:round で「丸ドットだけ」が等間隔に並ぶ
-        dashArray: "0 18",
+        // dash 0px + 隙間 54px、lineCap:round で「丸ドットだけ」が等間隔(粗め)に並ぶ
+        dashArray: "0 54",
         className: "rail-highlight-line"
       }).addTo(map);
       // CSS currentColor が drop-shadow に効くように、SVG path の color プロパティを設定
