@@ -2618,32 +2618,48 @@ function updateRailLayers() {
   railPolylines.forEach(function(p){ map.removeLayer(p); });
   railPolylines = [];
   railParticles = [];
-  var selectedSegs = [];  // PDF出力等の後方互換用 [{op,latlngs,color},...]
-  var selectedLines = []; // 粒子用 [{op,line,color,segs:[[latlngs],...]}]
+  var selectedSegs = [];
+  var selectedLines = [];
   RAIL_LINES.forEach(function(l){
     var key = l.op + "|" + l.line;
     if (!RAIL_SELECTED[key]) return;
     var col = opColor(l.op);
-    // まず元のセグメントを Leaflet 座標系に
     var rawSegs = [];
     l.segs.forEach(function(s){
       var latlngs = s.map(function(c){ return [c[1], c[0]]; });
       if (latlngs.length >= 2) rawSegs.push(latlngs);
     });
-    // 地理的に連続するよう連結ソート (端→端の流れを実現)
+    // 阪急京都線は梅田〜十三区間が神戸線のデータに含まれるため、ここで合成
+    if (l.op === "阪急電鉄" && l.line === "京都線") {
+      var kobe = RAIL_LINES.find(function(x){ return x.op === "阪急電鉄" && x.line === "神戸線"; });
+      if (kobe) {
+        kobe.segs.forEach(function(s){
+          // 梅田(135.498)〜十三(135.487)区間に収まるセグメントのみ抽出
+          if (s.every(function(c){ return c[0] >= 135.486 && c[0] <= 135.500; })) {
+            var ll = s.map(function(c){ return [c[1], c[0]]; });
+            if (ll.length >= 2) rawSegs.push(ll);
+          }
+        });
+      }
+    }
+    // 地理的に連続するよう連結ソート
     var chained = chainSegments(rawSegs);
-    // ハイライト描画: 単層で軽量化。CSSフィルタで擬似グロー風に
-    chained.forEach(function(latlngs){
-      var line = L.polyline(latlngs, {
+    // 全セグメントを1本の latlngs に結合 → dashArray が連続して等間隔ドットに
+    var combined = [];
+    chained.forEach(function(seg){
+      for (var i = 0; i < seg.length; i++) combined.push(seg[i]);
+    });
+    if (combined.length >= 2) {
+      var line = L.polyline(combined, {
         color: col, weight: 6, opacity: 1.0,
         lineCap: "round", lineJoin: "round",
-        // dash 0px + 隙間 54px、lineCap:round で「丸ドットだけ」が等間隔(粗め)に並ぶ
         dashArray: "0 54",
         className: "rail-highlight-line"
       }).addTo(map);
-      // CSS currentColor が drop-shadow に効くように、SVG path の color プロパティを設定
       if (line._path) line._path.style.color = col;
       railPolylines.push(line);
+    }
+    chained.forEach(function(latlngs){
       selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
     });
     if (chained.length) selectedLines.push({ op: l.op, line: l.line, color: col, segs: chained });
