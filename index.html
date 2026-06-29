@@ -2629,11 +2629,12 @@ function updateRailLayers() {
     });
     // 地理的に連続するよう連結ソート (端→端の流れを実現)
     var chained = chainSegments(rawSegs);
-    // ハイライト描画: 太線(グロー層) + 細線(本体)の二層で「光って強調」
+    // ハイライト描画: 外グロー / 中グロー / 本体線 の3層で「より目立つ発光」
     chained.forEach(function(latlngs){
-      var glow = L.polyline(latlngs, { color: col, weight: 8, opacity: 0.20, lineCap: "round", lineJoin: "round" }).addTo(map);
-      var line = L.polyline(latlngs, { color: col, weight: 3.0, opacity: 0.95, lineCap: "round", lineJoin: "round" }).addTo(map);
-      railPolylines.push(glow, line);
+      var outerGlow = L.polyline(latlngs, { color: col, weight: 15, opacity: 0.14, lineCap: "round", lineJoin: "round" }).addTo(map);
+      var innerGlow = L.polyline(latlngs, { color: col, weight: 9,  opacity: 0.32, lineCap: "round", lineJoin: "round" }).addTo(map);
+      var line      = L.polyline(latlngs, { color: col, weight: 4,  opacity: 1.0,  lineCap: "round", lineJoin: "round" }).addTo(map);
+      railPolylines.push(outerGlow, innerGlow, line);
       selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
     });
     if (chained.length) selectedLines.push({ op: l.op, line: l.line, color: col, segs: chained });
@@ -2695,10 +2696,11 @@ function railLoop() {
   lines.forEach(function(l){ activeKeys[l.op + "|" + l.line] = true; });
   Object.keys(railLineState).forEach(function(k){ if (!activeKeys[k]) delete railLineState[k]; });
 
-  // 光通信パルス: 路線ごとに 1粒子・等速直線運動・端→端を完走 → 始点にループ
+  // 光通信パルス: 路線ごとに 等間隔N個の粒子が等速直線運動 → 始点にループ
   var GLOW_R = 11;
   var CORE_R = 1.8;
-  var SPEED_M = 130;   // 1frameあたりの進行距離 [m] (60fps想定で 130m × 60 = 7.8km/s)
+  var SPEED_M = 130;     // 1frameあたりの進行距離 [m]
+  var N_PULSES = 4;       // 1路線あたりの粒子数
 
   lines.forEach(function(line){
     var key = line.op + "|" + line.line;
@@ -2728,56 +2730,63 @@ function railLoop() {
     if (meta.totalDist <= 0) return;
 
     var st = railLineState[key];
-    if (!st) st = railLineState[key] = { progressM: 0 };
-    st.progressM += SPEED_M;
-    if (st.progressM >= meta.totalDist) st.progressM = 0; // 終点到達 → 始点に戻る
-
-    // 累積距離から現在位置(segIdx, idx, t)を取得
-    var d = st.progressM;
-    var seg = null, segIdx = 0, idx = 0, t = 0;
-    for (var s = 0; s < nSegs; s++) {
-      var arr = meta.cumPerSeg[s];
-      var segLen = arr[arr.length - 1];
-      if (d <= segLen) {
-        segIdx = s;
-        seg = line.segs[s];
-        // セグメント内の点を二分探索
-        var lo = 0, hi = arr.length - 1;
-        while (hi - lo > 1) {
-          var mid = (lo + hi) >> 1;
-          if (arr[mid] <= d) lo = mid; else hi = mid;
-        }
-        idx = lo;
-        var span = arr[idx + 1] - arr[idx];
-        t = span > 0 ? (d - arr[idx]) / span : 0;
-        break;
+    if (!st || !st.pulses || st.pulses.length !== N_PULSES) {
+      // N_PULSES個を等間隔で配置
+      st = railLineState[key] = { pulses: [] };
+      for (var i = 0; i < N_PULSES; i++) {
+        st.pulses.push({ progressM: (meta.totalDist * i) / N_PULSES });
       }
-      d -= segLen;
     }
-    if (!seg || seg.length < 2) return;
-
     var col = line.color;
     var rgbCol = parseRGB(col);
-    var a = seg[idx], b = seg[idx + 1];
-    var lat = a[0] + (b[0] - a[0]) * t;
-    var lng = a[1] + (b[1] - a[1]) * t;
-    var pt = map.latLngToContainerPoint([lat, lng]);
 
-    // グロー
-    var g = railFlowCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, GLOW_R);
-    g.addColorStop(0,    "rgba(" + rgbCol + ",1.0)");
-    g.addColorStop(0.3,  "rgba(" + rgbCol + ",0.55)");
-    g.addColorStop(0.7,  "rgba(" + rgbCol + ",0.15)");
-    g.addColorStop(1,    "rgba(" + rgbCol + ",0)");
-    railFlowCtx.fillStyle = g;
-    railFlowCtx.beginPath();
-    railFlowCtx.arc(pt.x, pt.y, GLOW_R, 0, Math.PI * 2);
-    railFlowCtx.fill();
-    // 中心輝点
-    railFlowCtx.fillStyle = "rgba(255,255,255,0.95)";
-    railFlowCtx.beginPath();
-    railFlowCtx.arc(pt.x, pt.y, CORE_R, 0, Math.PI * 2);
-    railFlowCtx.fill();
+    st.pulses.forEach(function(pp){
+      pp.progressM += SPEED_M;
+      if (pp.progressM >= meta.totalDist) pp.progressM -= meta.totalDist; // ループ
+
+      // 累積距離から現在位置を取得
+      var d = pp.progressM;
+      var seg = null, idx = 0, t = 0;
+      for (var s = 0; s < nSegs; s++) {
+        var arr = meta.cumPerSeg[s];
+        var segLen = arr[arr.length - 1];
+        if (d <= segLen) {
+          seg = line.segs[s];
+          var lo = 0, hi = arr.length - 1;
+          while (hi - lo > 1) {
+            var mid = (lo + hi) >> 1;
+            if (arr[mid] <= d) lo = mid; else hi = mid;
+          }
+          idx = lo;
+          var span = arr[idx + 1] - arr[idx];
+          t = span > 0 ? (d - arr[idx]) / span : 0;
+          break;
+        }
+        d -= segLen;
+      }
+      if (!seg || seg.length < 2) return;
+
+      var a = seg[idx], b = seg[idx + 1];
+      var lat = a[0] + (b[0] - a[0]) * t;
+      var lng = a[1] + (b[1] - a[1]) * t;
+      var pt = map.latLngToContainerPoint([lat, lng]);
+
+      // グロー
+      var g = railFlowCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, GLOW_R);
+      g.addColorStop(0,    "rgba(" + rgbCol + ",1.0)");
+      g.addColorStop(0.3,  "rgba(" + rgbCol + ",0.55)");
+      g.addColorStop(0.7,  "rgba(" + rgbCol + ",0.15)");
+      g.addColorStop(1,    "rgba(" + rgbCol + ",0)");
+      railFlowCtx.fillStyle = g;
+      railFlowCtx.beginPath();
+      railFlowCtx.arc(pt.x, pt.y, GLOW_R, 0, Math.PI * 2);
+      railFlowCtx.fill();
+      // 中心輝点
+      railFlowCtx.fillStyle = "rgba(255,255,255,0.95)";
+      railFlowCtx.beginPath();
+      railFlowCtx.arc(pt.x, pt.y, CORE_R, 0, Math.PI * 2);
+      railFlowCtx.fill();
+    });
   });
   // 描画後に元の合成モードへ
   railFlowCtx.globalCompositeOperation = "source-over";
