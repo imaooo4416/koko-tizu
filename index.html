@@ -3230,11 +3230,13 @@ fetch("rail_lines.json").then(function(r){return r.json();}).then(function(d){
 // 光らせる前から線名がわかるようにするためのレイヤー。
 // SVG だと数千本の path がDOMに乗って重いので Canvas renderer を使用。
 var railHoverPolylines = [];
-// 専用 pane: overlayPane(400, circleMarker が乗る)より下に置いて、
-// 高校マーカーのタップを Canvas が奪わないようにする(タイル200の上に置く)。
+// 専用 pane: 高校 circleMarker(overlayPane 400)・大学 divIcon(markerPane 600) より
+// 確実に下に置く。tilePane(200) よりも下にして、Canvas が click/touch を奪うのを完全に防ぐ。
+// 鉄道路線名 tooltip は Leaflet の Canvas renderer 内部の hit-test で動作するため、
+// pane の z-index が低くても polyline 上の hover/tap は引き続き検出される。
 if (!map.getPane("railHoverPane")) {
   map.createPane("railHoverPane");
-  map.getPane("railHoverPane").style.zIndex = 395;
+  map.getPane("railHoverPane").style.zIndex = 195;
 }
 var railHoverRenderer = L.canvas({ padding: 0.5, pane: "railHoverPane" });
 function buildRailHoverLayer() {
