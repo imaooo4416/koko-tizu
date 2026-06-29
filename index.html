@@ -2635,61 +2635,112 @@ function startRailFlow() {
 var railLineState = {};
 
 function railLoop() {
-  railFlowCtx.clearRect(0, 0, railFlowCanvas.width, railFlowCanvas.height);
+  // 光通信トレイル: 完全clearの代わりに前フレームを薄くフェードさせて残像を残す
+  // destination-out + 半透明黒で「アルファを徐々に減算」
+  railFlowCtx.globalCompositeOperation = "destination-out";
+  railFlowCtx.fillStyle = "rgba(0,0,0,0.14)"; // フェード速度: 値を上げると尾が短く、下げると長く
+  railFlowCtx.fillRect(0, 0, railFlowCanvas.width, railFlowCanvas.height);
+  railFlowCtx.globalCompositeOperation = "lighter"; // 加算合成: 光が重なるとさらに明るく
   var lines = window._railLines || [];
-  if (lines.length === 0) { railFlowRunning = false; railLineState = {}; return; }
+  if (lines.length === 0) {
+    // 残光だけ徐々にフェードして自然消滅させる
+    if (!railLineState || Object.keys(railLineState).length === 0) {
+      railFlowRunning = false; return;
+    }
+    railLineState = {};
+    requestAnimationFrame(railLoop);
+    return;
+  }
 
   // 選択解除された路線の状態を掃除
   var activeKeys = {};
   lines.forEach(function(l){ activeKeys[l.op + "|" + l.line] = true; });
   Object.keys(railLineState).forEach(function(k){ if (!activeKeys[k]) delete railLineState[k]; });
 
-  // 各路線に粒子を1つだけ走らせる
-  var GLOW_R = 16;      // グローサイズ
-  var CORE_R = 3.0;     // 中心輝点
-  var SPEED  = 0.055;   // セグメント内補間速度(/frame)
+  // 光通信パルス: 各路線の「開始点」と「終点」から1個ずつ発生 → 反対端で消える
+  var GLOW_R = 18;
+  var CORE_R = 2.6;
+  var SPEED  = 0.06;
 
   lines.forEach(function(line){
     var key = line.op + "|" + line.line;
     var st = railLineState[key];
-    if (!st) st = railLineState[key] = { segIdx: 0, idx: 0, t: 0 };
-    var seg = line.segs[st.segIdx];
-    if (!seg || seg.length < 2) { st.segIdx = 0; st.idx = 0; st.t = 0; return; }
-
-    st.t += SPEED;
-    while (st.t >= 1) {
-      st.t -= 1;
-      st.idx++;
-      if (st.idx >= seg.length - 1) {
-        // セグメント終端 → 同路線の次のセグメントへ (最後なら先頭にループ)
-        st.idx = 0;
-        st.segIdx = (st.segIdx + 1) % line.segs.length;
-        seg = line.segs[st.segIdx];
-        if (!seg || seg.length < 2) { st.segIdx = 0; st.idx = 0; st.t = 0; return; }
-      }
+    if (!st || !st.pulses) {
+      // 最長セグメントを「主軸」とみなし、その両端から1つずつ発生
+      var firstSeg = line.segs[0]; // 既に長さ降順ソート済み
+      if (!firstSeg || firstSeg.length < 2) return;
+      st = railLineState[key] = { pulses: [
+        // 順方向: 開始点(主軸先頭)から
+        { dir:  1, segIdx: 0, idx: 0, t: 0 },
+        // 逆方向: 終点(主軸末端)から
+        { dir: -1, segIdx: 0, idx: firstSeg.length - 2, t: 0.9999 }
+      ]};
     }
-    var a = seg[st.idx], b = seg[st.idx + 1];
-    var lat = a[0] + (b[0] - a[0]) * st.t;
-    var lng = a[1] + (b[1] - a[1]) * st.t;
-    var pp = map.latLngToContainerPoint([lat, lng]);
     var col = line.color;
-    // 大きめグロー
-    var g = railFlowCtx.createRadialGradient(pp.x, pp.y, 0, pp.x, pp.y, GLOW_R);
-    g.addColorStop(0,    hexA(col, 1.0));
-    g.addColorStop(0.25, hexA(col, 0.75));
-    g.addColorStop(0.6,  hexA(col, 0.30));
-    g.addColorStop(1,    hexA(col, 0));
-    railFlowCtx.fillStyle = g;
-    railFlowCtx.beginPath();
-    railFlowCtx.arc(pp.x, pp.y, GLOW_R, 0, Math.PI * 2);
-    railFlowCtx.fill();
-    // 白い中心輝点
-    railFlowCtx.fillStyle = "rgba(255,255,255,0.98)";
-    railFlowCtx.beginPath();
-    railFlowCtx.arc(pp.x, pp.y, CORE_R, 0, Math.PI * 2);
-    railFlowCtx.fill();
+    var rgbCol = parseRGB(col);
+
+    st.pulses.forEach(function(pp){
+      var seg = line.segs[pp.segIdx];
+      if (!seg || seg.length < 2) { pp.segIdx = 0; pp.idx = 0; pp.t = 0; return; }
+
+      if (pp.dir > 0) {
+        // 順方向: 開始点 → 終点
+        pp.t += SPEED;
+        while (pp.t >= 1) {
+          pp.t -= 1;
+          pp.idx++;
+          if (pp.idx >= seg.length - 1) {
+            // 主軸の終点まで来た → 開始点へリセット (反対側からまた発生)
+            pp.idx = 0; pp.segIdx = 0; pp.t = 0;
+            seg = line.segs[0];
+            if (!seg || seg.length < 2) return;
+          }
+        }
+      } else {
+        // 逆方向: 終点 → 開始点
+        pp.t -= SPEED;
+        while (pp.t < 0) {
+          pp.t += 1;
+          pp.idx--;
+          if (pp.idx < 0) {
+            // 主軸の開始点まで戻ってきた → 終点へリセット
+            pp.segIdx = 0; seg = line.segs[0];
+            if (!seg || seg.length < 2) return;
+            pp.idx = seg.length - 2; pp.t = 0.9999;
+          }
+        }
+      }
+      var a = seg[pp.idx], b = seg[pp.idx + 1];
+      var lat = a[0] + (b[0] - a[0]) * pp.t;
+      var lng = a[1] + (b[1] - a[1]) * pp.t;
+      var pt = map.latLngToContainerPoint([lat, lng]);
+
+      // グロー
+      var g = railFlowCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, GLOW_R);
+      g.addColorStop(0,    "rgba(" + rgbCol + ",1.0)");
+      g.addColorStop(0.25, "rgba(" + rgbCol + ",0.55)");
+      g.addColorStop(0.6,  "rgba(" + rgbCol + ",0.18)");
+      g.addColorStop(1,    "rgba(" + rgbCol + ",0)");
+      railFlowCtx.fillStyle = g;
+      railFlowCtx.beginPath();
+      railFlowCtx.arc(pt.x, pt.y, GLOW_R, 0, Math.PI * 2);
+      railFlowCtx.fill();
+      // 中心輝点
+      railFlowCtx.fillStyle = "rgba(255,255,255,0.95)";
+      railFlowCtx.beginPath();
+      railFlowCtx.arc(pt.x, pt.y, CORE_R, 0, Math.PI * 2);
+      railFlowCtx.fill();
+    });
   });
+  // 描画後に元の合成モードへ
+  railFlowCtx.globalCompositeOperation = "source-over";
   requestAnimationFrame(railLoop);
+}
+
+// #RRGGBB → "r,g,b" 文字列
+function parseRGB(hex) {
+  var h = hex.replace("#","");
+  return parseInt(h.substr(0,2),16) + "," + parseInt(h.substr(2,2),16) + "," + parseInt(h.substr(4,2),16);
 }
 
 function hexA(hex, alpha) {
