@@ -70,7 +70,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 
 /* Search box */
 #search-wrap{position:relative;margin-bottom:10px}
-#listDrawer #search-wrap{margin:10px 14px 4px}
+#listDrawer #search-wrap{margin:10px 50px 4px 14px}
 #searchInput{width:100%;padding:11px 34px 11px 34px;border:1.5px solid var(--border);border-radius:var(--r-pill);font-size:13px;outline:none;font-family:'Noto Sans JP',sans-serif;background:var(--surface-2);transition:all .2s var(--ease);font-weight:500;color:var(--ink)}
 #searchInput::placeholder{color:var(--ink-faint)}
 #searchInput:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px var(--accent-soft)}
@@ -211,9 +211,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 /* 右側スライドドロワー: 学校一覧 */
 #listDrawer{position:fixed;top:0;right:-380px;width:360px;max-width:100vw;height:100vh;background:var(--surface);box-shadow:var(--shadow-lg);z-index:998;transition:right .45s var(--ease-spring);overflow-y:auto;display:flex;flex-direction:column;border-left:1px solid var(--border-soft)}
 #listDrawer.open{right:0}
-#listDrawer .ld-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);background:linear-gradient(180deg,var(--surface-2) 0%,var(--surface) 100%);flex-shrink:0}
-#listDrawer .ld-title{font-size:14px;font-weight:800;color:var(--ink);letter-spacing:.3px}
-#listDrawer #listDrawerClose{width:32px;height:32px;border:1.5px solid var(--border);background:rgba(255,255,255,.85);color:var(--ink-soft);font-size:18px;line-height:1;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .2s var(--ease);padding:0;font-family:inherit;flex-shrink:0}
+#listDrawer #listDrawerClose{position:absolute;top:8px;right:8px;z-index:5;width:30px;height:30px;border:1.5px solid var(--border);background:rgba(255,255,255,.92);color:var(--ink-soft);font-size:17px;line-height:1;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .2s var(--ease);padding:0;font-family:inherit}
 #listDrawer #listDrawerClose:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 #listDrawer #school-list{flex:1}
 
@@ -441,10 +439,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 
 <!-- 右側スライドドロワー: 学校一覧 -->
 <div id="listDrawer" aria-hidden="true">
-  <div class="ld-head">
-    <span class="ld-title">📋 表示中の学校一覧</span>
-    <button type="button" id="listDrawerClose" aria-label="閉じる">&times;</button>
-  </div>
+  <button type="button" id="listDrawerClose" aria-label="閉じる">&times;</button>
   <div id="search-wrap">
     <input id="searchInput" type="text" placeholder="学校名で検索..." autocomplete="off">
     <button id="searchClear" type="button" aria-label="クリア">&times;</button>
