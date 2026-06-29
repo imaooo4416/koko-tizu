@@ -2596,8 +2596,7 @@ function updateRailLayers() {
       selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
       if (latlngs.length >= 2) lineSegments.push(latlngs);
     });
-    // セグメントを長さ降順にソート → 長い区間を主に走らせて見栄え向上
-    lineSegments.sort(function(a, b){ return b.length - a.length; });
+    // 元データ順を保持(地理的連続性を残すため、長さ順ソートはしない)
     if (lineSegments.length) selectedLines.push({ op: l.op, line: l.line, color: col, segs: lineSegments });
   });
   window._railSegs = selectedSegs;
@@ -2657,83 +2656,89 @@ function railLoop() {
   lines.forEach(function(l){ activeKeys[l.op + "|" + l.line] = true; });
   Object.keys(railLineState).forEach(function(k){ if (!activeKeys[k]) delete railLineState[k]; });
 
-  // 光通信パルス: 各路線の「開始点」と「終点」から1個ずつ発生 → 全セグメントを順に辿る
-  var GLOW_R = 18;
-  var CORE_R = 2.6;
-  var SPEED  = 0.16;   // 0.06 → 0.16 (約2.7倍速)
+  // 光通信パルス: 路線ごとに 1粒子・等速直線運動・端→端を完走 → 始点にループ
+  var GLOW_R = 11;
+  var CORE_R = 1.8;
+  var SPEED_M = 130;   // 1frameあたりの進行距離 [m] (60fps想定で 130m × 60 = 7.8km/s)
 
   lines.forEach(function(line){
     var key = line.op + "|" + line.line;
     var nSegs = line.segs.length;
     if (!nSegs) return;
-    var st = railLineState[key];
-    if (!st || !st.pulses) {
-      var lastSeg = line.segs[nSegs - 1];
-      if (!lastSeg || lastSeg.length < 2) return;
-      st = railLineState[key] = { pulses: [
-        // 順方向: 全路線の先頭セグメント先頭から
-        { dir:  1, segIdx: 0, idx: 0, t: 0 },
-        // 逆方向: 全路線の末尾セグメント末端から
-        { dir: -1, segIdx: nSegs - 1, idx: lastSeg.length - 2, t: 0.9999 }
-      ]};
+
+    // 路線の累積距離メタを遅延構築
+    if (!line._meta) {
+      var cumPerSeg = [];
+      var total = 0;
+      line.segs.forEach(function(seg) {
+        var arr = [0];
+        var acc = 0;
+        for (var i = 1; i < seg.length; i++) {
+          var a = seg[i - 1], b = seg[i];
+          var dy = (b[0] - a[0]) * 111000;
+          var dx = (b[1] - a[1]) * 111000 * Math.cos(a[0] * Math.PI / 180);
+          acc += Math.sqrt(dx * dx + dy * dy);
+          arr.push(acc);
+        }
+        cumPerSeg.push(arr);
+        total += acc;
+      });
+      line._meta = { cumPerSeg: cumPerSeg, totalDist: total };
     }
+    var meta = line._meta;
+    if (meta.totalDist <= 0) return;
+
+    var st = railLineState[key];
+    if (!st) st = railLineState[key] = { progressM: 0 };
+    st.progressM += SPEED_M;
+    if (st.progressM >= meta.totalDist) st.progressM = 0; // 終点到達 → 始点に戻る
+
+    // 累積距離から現在位置(segIdx, idx, t)を取得
+    var d = st.progressM;
+    var seg = null, segIdx = 0, idx = 0, t = 0;
+    for (var s = 0; s < nSegs; s++) {
+      var arr = meta.cumPerSeg[s];
+      var segLen = arr[arr.length - 1];
+      if (d <= segLen) {
+        segIdx = s;
+        seg = line.segs[s];
+        // セグメント内の点を二分探索
+        var lo = 0, hi = arr.length - 1;
+        while (hi - lo > 1) {
+          var mid = (lo + hi) >> 1;
+          if (arr[mid] <= d) lo = mid; else hi = mid;
+        }
+        idx = lo;
+        var span = arr[idx + 1] - arr[idx];
+        t = span > 0 ? (d - arr[idx]) / span : 0;
+        break;
+      }
+      d -= segLen;
+    }
+    if (!seg || seg.length < 2) return;
+
     var col = line.color;
     var rgbCol = parseRGB(col);
+    var a = seg[idx], b = seg[idx + 1];
+    var lat = a[0] + (b[0] - a[0]) * t;
+    var lng = a[1] + (b[1] - a[1]) * t;
+    var pt = map.latLngToContainerPoint([lat, lng]);
 
-    st.pulses.forEach(function(pp){
-      var seg = line.segs[pp.segIdx];
-      if (!seg || seg.length < 2) { pp.segIdx = 0; pp.idx = 0; pp.t = 0; return; }
-
-      if (pp.dir > 0) {
-        // 順方向: 現セグメント末端 → 次セグメント → ... → 全部終わったら先頭にループ
-        pp.t += SPEED;
-        while (pp.t >= 1) {
-          pp.t -= 1;
-          pp.idx++;
-          if (pp.idx >= seg.length - 1) {
-            pp.idx = 0;
-            pp.segIdx++;
-            if (pp.segIdx >= nSegs) pp.segIdx = 0; // 全セグメント完走 → 先頭に戻る
-            seg = line.segs[pp.segIdx];
-            if (!seg || seg.length < 2) { pp.segIdx = 0; pp.idx = 0; pp.t = 0; return; }
-          }
-        }
-      } else {
-        // 逆方向: 現セグメント先頭 → 前セグメント → ... → 全部終わったら末尾にループ
-        pp.t -= SPEED;
-        while (pp.t < 0) {
-          pp.t += 1;
-          pp.idx--;
-          if (pp.idx < 0) {
-            pp.segIdx--;
-            if (pp.segIdx < 0) pp.segIdx = nSegs - 1; // 全セグメント完走 → 末尾に戻る
-            seg = line.segs[pp.segIdx];
-            if (!seg || seg.length < 2) { pp.segIdx = nSegs - 1; pp.idx = 0; pp.t = 0; return; }
-            pp.idx = seg.length - 2;
-          }
-        }
-      }
-      var a = seg[pp.idx], b = seg[pp.idx + 1];
-      var lat = a[0] + (b[0] - a[0]) * pp.t;
-      var lng = a[1] + (b[1] - a[1]) * pp.t;
-      var pt = map.latLngToContainerPoint([lat, lng]);
-
-      // グロー
-      var g = railFlowCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, GLOW_R);
-      g.addColorStop(0,    "rgba(" + rgbCol + ",1.0)");
-      g.addColorStop(0.25, "rgba(" + rgbCol + ",0.55)");
-      g.addColorStop(0.6,  "rgba(" + rgbCol + ",0.18)");
-      g.addColorStop(1,    "rgba(" + rgbCol + ",0)");
-      railFlowCtx.fillStyle = g;
-      railFlowCtx.beginPath();
-      railFlowCtx.arc(pt.x, pt.y, GLOW_R, 0, Math.PI * 2);
-      railFlowCtx.fill();
-      // 中心輝点
-      railFlowCtx.fillStyle = "rgba(255,255,255,0.95)";
-      railFlowCtx.beginPath();
-      railFlowCtx.arc(pt.x, pt.y, CORE_R, 0, Math.PI * 2);
-      railFlowCtx.fill();
-    });
+    // グロー
+    var g = railFlowCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, GLOW_R);
+    g.addColorStop(0,    "rgba(" + rgbCol + ",1.0)");
+    g.addColorStop(0.3,  "rgba(" + rgbCol + ",0.55)");
+    g.addColorStop(0.7,  "rgba(" + rgbCol + ",0.15)");
+    g.addColorStop(1,    "rgba(" + rgbCol + ",0)");
+    railFlowCtx.fillStyle = g;
+    railFlowCtx.beginPath();
+    railFlowCtx.arc(pt.x, pt.y, GLOW_R, 0, Math.PI * 2);
+    railFlowCtx.fill();
+    // 中心輝点
+    railFlowCtx.fillStyle = "rgba(255,255,255,0.95)";
+    railFlowCtx.beginPath();
+    railFlowCtx.arc(pt.x, pt.y, CORE_R, 0, Math.PI * 2);
+    railFlowCtx.fill();
   });
   // 描画後に元の合成モードへ
   railFlowCtx.globalCompositeOperation = "source-over";
