@@ -2582,23 +2582,27 @@ function updateRailLayers() {
   railPolylines.forEach(function(p){ map.removeLayer(p); });
   railPolylines = [];
   railParticles = [];
-  var selectedSegs = [];  // [{op,segs:[[ll,...],...]}]
+  var selectedSegs = [];  // PDF出力等の後方互換用 [{op,latlngs,color},...]
+  var selectedLines = []; // 粒子用 [{op,line,color,segs:[[latlngs],...]}]
   RAIL_LINES.forEach(function(l){
     var key = l.op + "|" + l.line;
     if (!RAIL_SELECTED[key]) return;
     var col = opColor(l.op);
+    var lineSegments = [];
     l.segs.forEach(function(s){
-      // [lng,lat] → [lat,lng]
       var latlngs = s.map(function(c){ return [c[1], c[0]]; });
       var pl = L.polyline(latlngs, { color: col, weight: 3.2, opacity: 0.7, lineCap: "round", lineJoin: "round" }).addTo(map);
       railPolylines.push(pl);
-      // 粒子用にセグメント保存
       selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
+      if (latlngs.length >= 2) lineSegments.push(latlngs);
     });
+    // セグメントを長さ降順にソート → 長い区間を主に走らせて見栄え向上
+    lineSegments.sort(function(a, b){ return b.length - a.length; });
+    if (lineSegments.length) selectedLines.push({ op: l.op, line: l.line, color: col, segs: lineSegments });
   });
   window._railSegs = selectedSegs;
+  window._railLines = selectedLines;
   if (!railFlowRunning) startRailFlow();
-  // 沿線モードがONなら駅円も更新
   refreshAlongRail();
 }
 
@@ -2627,44 +2631,63 @@ function startRailFlow() {
   requestAnimationFrame(railLoop);
 }
 
+// 路線単位の粒子状態 (路線key → {segIdx, idx, t})
+var railLineState = {};
+
 function railLoop() {
   railFlowCtx.clearRect(0, 0, railFlowCanvas.width, railFlowCanvas.height);
-  var segs = window._railSegs || [];
-  if (segs.length === 0) { railFlowRunning = false; return; }
-  // 新規粒子を発生（各セグメントで一定確率）
-  if (railParticles.length < 800) {
-    segs.forEach(function(seg){
-      if (Math.random() < 0.08) {
-        railParticles.push({ seg: seg, idx: 0, t: 0, speed: 0.012 + Math.random() * 0.018 });
+  var lines = window._railLines || [];
+  if (lines.length === 0) { railFlowRunning = false; railLineState = {}; return; }
+
+  // 選択解除された路線の状態を掃除
+  var activeKeys = {};
+  lines.forEach(function(l){ activeKeys[l.op + "|" + l.line] = true; });
+  Object.keys(railLineState).forEach(function(k){ if (!activeKeys[k]) delete railLineState[k]; });
+
+  // 各路線に粒子を1つだけ走らせる
+  var GLOW_R = 16;      // グローサイズ
+  var CORE_R = 3.0;     // 中心輝点
+  var SPEED  = 0.055;   // セグメント内補間速度(/frame)
+
+  lines.forEach(function(line){
+    var key = line.op + "|" + line.line;
+    var st = railLineState[key];
+    if (!st) st = railLineState[key] = { segIdx: 0, idx: 0, t: 0 };
+    var seg = line.segs[st.segIdx];
+    if (!seg || seg.length < 2) { st.segIdx = 0; st.idx = 0; st.t = 0; return; }
+
+    st.t += SPEED;
+    while (st.t >= 1) {
+      st.t -= 1;
+      st.idx++;
+      if (st.idx >= seg.length - 1) {
+        // セグメント終端 → 同路線の次のセグメントへ (最後なら先頭にループ)
+        st.idx = 0;
+        st.segIdx = (st.segIdx + 1) % line.segs.length;
+        seg = line.segs[st.segIdx];
+        if (!seg || seg.length < 2) { st.segIdx = 0; st.idx = 0; st.t = 0; return; }
       }
-    });
-  }
-  // 粒子更新+描画
-  railParticles = railParticles.filter(function(p){
-    var pts = p.seg.latlngs;
-    if (p.idx >= pts.length - 1) return false;
-    p.t += p.speed;
-    while (p.t >= 1) { p.t -= 1; p.idx++; if (p.idx >= pts.length - 1) return false; }
-    var a = pts[p.idx], b = pts[p.idx + 1];
-    var lat = a[0] + (b[0] - a[0]) * p.t;
-    var lng = a[1] + (b[1] - a[1]) * p.t;
+    }
+    var a = seg[st.idx], b = seg[st.idx + 1];
+    var lat = a[0] + (b[0] - a[0]) * st.t;
+    var lng = a[1] + (b[1] - a[1]) * st.t;
     var pp = map.latLngToContainerPoint([lat, lng]);
-    var col = p.seg.color;
-    // グロー
-    var g = railFlowCtx.createRadialGradient(pp.x, pp.y, 0, pp.x, pp.y, 8);
-    g.addColorStop(0, hexA(col, 0.95));
-    g.addColorStop(0.4, hexA(col, 0.55));
-    g.addColorStop(1, hexA(col, 0));
+    var col = line.color;
+    // 大きめグロー
+    var g = railFlowCtx.createRadialGradient(pp.x, pp.y, 0, pp.x, pp.y, GLOW_R);
+    g.addColorStop(0,    hexA(col, 1.0));
+    g.addColorStop(0.25, hexA(col, 0.75));
+    g.addColorStop(0.6,  hexA(col, 0.30));
+    g.addColorStop(1,    hexA(col, 0));
     railFlowCtx.fillStyle = g;
     railFlowCtx.beginPath();
-    railFlowCtx.arc(pp.x, pp.y, 8, 0, Math.PI * 2);
+    railFlowCtx.arc(pp.x, pp.y, GLOW_R, 0, Math.PI * 2);
     railFlowCtx.fill();
-    // 中心輝点
-    railFlowCtx.fillStyle = "rgba(255,255,255,0.95)";
+    // 白い中心輝点
+    railFlowCtx.fillStyle = "rgba(255,255,255,0.98)";
     railFlowCtx.beginPath();
-    railFlowCtx.arc(pp.x, pp.y, 1.7, 0, Math.PI * 2);
+    railFlowCtx.arc(pp.x, pp.y, CORE_R, 0, Math.PI * 2);
     railFlowCtx.fill();
-    return true;
   });
   requestAnimationFrame(railLoop);
 }
