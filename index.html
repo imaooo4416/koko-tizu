@@ -2578,6 +2578,39 @@ function refreshAlongRail() {
   }
 }
 
+// 2点間距離(m, 平面近似)
+function distM2(a, b) {
+  var dy = (a[0] - b[0]) * 111000;
+  var dx = (a[1] - b[1]) * 111000 * Math.cos(a[0] * Math.PI / 180);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// 飛び飛びのセグメントを「最も近い端点」で連結ソート(greedy)
+// 必要なら個別セグメントを逆順にして繋ぐ
+function chainSegments(segs) {
+  if (segs.length <= 1) return segs.slice();
+  var remaining = segs.slice();
+  // 最長セグメントを起点に
+  remaining.sort(function(a, b){ return b.length - a.length; });
+  var result = [remaining.shift()];
+  while (remaining.length > 0) {
+    var last = result[result.length - 1];
+    var lastEnd = last[last.length - 1];
+    var bestIdx = -1, bestDist = Infinity, bestReverse = false;
+    for (var i = 0; i < remaining.length; i++) {
+      var seg = remaining[i];
+      var d1 = distM2(lastEnd, seg[0]);
+      var d2 = distM2(lastEnd, seg[seg.length - 1]);
+      if (d1 < bestDist) { bestDist = d1; bestIdx = i; bestReverse = false; }
+      if (d2 < bestDist) { bestDist = d2; bestIdx = i; bestReverse = true; }
+    }
+    var picked = remaining.splice(bestIdx, 1)[0];
+    if (bestReverse) picked = picked.slice().reverse();
+    result.push(picked);
+  }
+  return result;
+}
+
 function updateRailLayers() {
   railPolylines.forEach(function(p){ map.removeLayer(p); });
   railPolylines = [];
@@ -2588,16 +2621,22 @@ function updateRailLayers() {
     var key = l.op + "|" + l.line;
     if (!RAIL_SELECTED[key]) return;
     var col = opColor(l.op);
-    var lineSegments = [];
+    // まず元のセグメントを Leaflet 座標系に
+    var rawSegs = [];
     l.segs.forEach(function(s){
       var latlngs = s.map(function(c){ return [c[1], c[0]]; });
-      var pl = L.polyline(latlngs, { color: col, weight: 3.2, opacity: 0.7, lineCap: "round", lineJoin: "round" }).addTo(map);
-      railPolylines.push(pl);
-      selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
-      if (latlngs.length >= 2) lineSegments.push(latlngs);
+      if (latlngs.length >= 2) rawSegs.push(latlngs);
     });
-    // 元データ順を保持(地理的連続性を残すため、長さ順ソートはしない)
-    if (lineSegments.length) selectedLines.push({ op: l.op, line: l.line, color: col, segs: lineSegments });
+    // 地理的に連続するよう連結ソート (端→端の流れを実現)
+    var chained = chainSegments(rawSegs);
+    // ハイライト描画: 太線(グロー層) + 細線(本体)の二層で「光って強調」
+    chained.forEach(function(latlngs){
+      var glow = L.polyline(latlngs, { color: col, weight: 8, opacity: 0.20, lineCap: "round", lineJoin: "round" }).addTo(map);
+      var line = L.polyline(latlngs, { color: col, weight: 3.0, opacity: 0.95, lineCap: "round", lineJoin: "round" }).addTo(map);
+      railPolylines.push(glow, line);
+      selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
+    });
+    if (chained.length) selectedLines.push({ op: l.op, line: l.line, color: col, segs: chained });
   });
   window._railSegs = selectedSegs;
   window._railLines = selectedLines;
