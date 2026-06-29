@@ -3230,7 +3230,13 @@ fetch("rail_lines.json").then(function(r){return r.json();}).then(function(d){
 // 光らせる前から線名がわかるようにするためのレイヤー。
 // SVG だと数千本の path がDOMに乗って重いので Canvas renderer を使用。
 var railHoverPolylines = [];
-var railHoverRenderer = L.canvas({ padding: 0.5 });
+// 専用 pane: overlayPane(400, circleMarker が乗る)より下に置いて、
+// 高校マーカーのタップを Canvas が奪わないようにする(タイル200の上に置く)。
+if (!map.getPane("railHoverPane")) {
+  map.createPane("railHoverPane");
+  map.getPane("railHoverPane").style.zIndex = 395;
+}
+var railHoverRenderer = L.canvas({ padding: 0.5, pane: "railHoverPane" });
 function buildRailHoverLayer() {
   // 既存があれば破棄(reload耐性)
   railHoverPolylines.forEach(function(p){ map.removeLayer(p); });
