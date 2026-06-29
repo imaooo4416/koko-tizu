@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>関西6府県 高等学校 所在地マップ</title>
-<meta name="description" content="大阪府・兵庫県・京都府・奈良県・滋賀県・和歌山県の公立高校・私立高校の所在地を地図上にプロットしたインタラクティブマップ。">
+<title>関西6府県 高校・大学 所在地マップ</title>
+<meta name="description" content="大阪府・兵庫県・京都府・奈良県・滋賀県・和歌山県の高校・大学の所在地を地図上にプロットしたインタラクティブマップ。">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
@@ -205,6 +205,22 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 /* Panel */
 #panel{position:fixed;top:0;right:-440px;width:420px;max-width:100vw;height:100vh;background:var(--surface);box-shadow:var(--shadow-lg);z-index:1000;transition:right .5s var(--ease-spring);overflow-y:auto;display:flex;flex-direction:column;border-left:1px solid var(--border-soft)}
 #panel.open{right:0}
+
+/* 右側スライドドロワー: 学校一覧 */
+#listDrawer{position:fixed;top:0;right:-380px;width:360px;max-width:100vw;height:100vh;background:var(--surface);box-shadow:var(--shadow-lg);z-index:998;transition:right .45s var(--ease-spring);overflow-y:auto;display:flex;flex-direction:column;border-left:1px solid var(--border-soft)}
+#listDrawer.open{right:0}
+#listDrawer .ld-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);background:linear-gradient(180deg,var(--surface-2) 0%,var(--surface) 100%);flex-shrink:0}
+#listDrawer .ld-title{font-size:14px;font-weight:800;color:var(--ink);letter-spacing:.3px}
+#listDrawer #listDrawerClose{width:32px;height:32px;border:1.5px solid var(--border);background:rgba(255,255,255,.85);color:var(--ink-soft);font-size:18px;line-height:1;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .2s var(--ease);padding:0;font-family:inherit;flex-shrink:0}
+#listDrawer #listDrawerClose:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+#listDrawer #school-list{flex:1}
+
+/* 一覧を開くフローティングボタン (地図右下のFAB) */
+#listToggleBtn{position:absolute;bottom:46px;right:18px;z-index:600;padding:11px 18px;border:none;border-radius:var(--r-pill);background:linear-gradient(135deg,var(--accent) 0%,var(--accent-deep) 100%);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(255,139,123,.45);transition:all .22s var(--ease)}
+#listToggleBtn:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(255,139,123,.55)}
+#listToggleBtn .lt-icon{font-size:15px;line-height:1}
+#listToggleBtn .lt-count{font-size:11px;padding:2px 9px;border-radius:var(--r-pill);background:rgba(255,255,255,.25);font-weight:700}
+#listToggleBtn.is-open{display:none}
 #panel::-webkit-scrollbar{width:6px}
 #panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 #overlay{display:none;position:fixed;inset:0;background:rgba(61,46,46,.32);backdrop-filter:blur(2px);z-index:999;animation:fadeIn .3s var(--ease)}
@@ -340,13 +356,13 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 <div id="app">
   <div id="sidebar">
     <div id="sidebar-header">
-      <h1>関西6府県 高等学校 所在地マップ</h1>
+      <h1>関西6府県 高校・大学 所在地マップ</h1>
       <div class="count" id="cnt">329校</div>
       <button id="pdfBtn" type="button">&#x1F5A8; 表示中の一覧をPDF保存</button>
     </div>
     <div id="filters">
       <div id="search-wrap">
-        <input id="searchInput" type="text" placeholder="高校名で検索..." autocomplete="off">
+        <input id="searchInput" type="text" placeholder="学校名で検索..." autocomplete="off">
         <button id="searchClear" type="button" aria-label="クリア">&times;</button>
       </div>
       <div class="filter-group">
@@ -396,7 +412,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
         </button>
         <label class="cb" id="alongRailToggleWrap" style="margin-top:8px;width:100%;justify-content:center;cursor:pointer;display:flex;align-items:center;gap:6px;padding:8px 12px">
           <input type="checkbox" id="alongRailToggle" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
-          <span>📍 沿線(駅半径1.2km)の高校のみ</span>
+          <span>📍 沿線(駅半径1.2km)の学校のみ</span>
         </label>
         <div id="alongRailHint" style="font-size:10.5px;color:var(--ink-soft);background:var(--surface-2);border:1px dashed var(--border);border-radius:var(--r-sm);padding:7px 10px;margin-top:6px;line-height:1.55;display:none">
           <b style="color:var(--ink)">1.2km の根拠</b><br>
@@ -405,15 +421,13 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
         </div>
       </div>
     </div>
-    <div id="school-list-tabs" class="kind-tabs">
-      <button type="button" class="kind-tab active" data-tab-kind="0"><span class="tab-icon">&#9679;</span> 高校 <span class="tab-count" id="tabCountHS">0</span></button>
-      <button type="button" class="kind-tab" data-tab-kind="1"><span class="tab-icon">&#9670;</span> 大学 <span class="tab-count" id="tabCountUniv">0</span></button>
-    </div>
-    <div id="school-list"></div>
   </div>
 
   <div id="map-wrap">
     <div id="map"></div>
+    <button id="listToggleBtn" type="button" aria-controls="listDrawer" aria-expanded="false" title="学校一覧を開く">
+      <span class="lt-icon">&#9776;</span> 学校一覧 <span id="listToggleCount" class="lt-count"></span>
+    </button>
     <div id="footer-bar">
       <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a> (BSD-2-Clause) |
       タイル: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a> |
@@ -422,7 +436,20 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
   </div>
 </div>
 
-<button id="mobile-toggle">&#x2715; 一覧を閉じる</button>
+<!-- 右側スライドドロワー: 学校一覧 -->
+<div id="listDrawer" aria-hidden="true">
+  <div class="ld-head">
+    <span class="ld-title">📋 表示中の学校一覧</span>
+    <button type="button" id="listDrawerClose" aria-label="閉じる">&times;</button>
+  </div>
+  <div id="school-list-tabs" class="kind-tabs">
+    <button type="button" class="kind-tab active" data-tab-kind="0"><span class="tab-icon">&#9679;</span> 高校 <span class="tab-count" id="tabCountHS">0</span></button>
+    <button type="button" class="kind-tab" data-tab-kind="1"><span class="tab-icon">&#9670;</span> 大学 <span class="tab-count" id="tabCountUniv">0</span></button>
+  </div>
+  <div id="school-list"></div>
+</div>
+
+<button id="mobile-toggle">&#x2715; フィルタを閉じる</button>
 
 <!-- School detail panel -->
 <div id="overlay"></div>
@@ -2227,6 +2254,8 @@ function upd() {
   } else {
     cntEl.textContent = "表示: " + n + " / " + markers.length + " 校";
   }
+  var ltc = document.getElementById("listToggleCount");
+  if (ltc) ltc.textContent = n;
   buildSchoolList();
 }
 
@@ -2445,7 +2474,7 @@ upd();
 document.getElementById("mobile-toggle").addEventListener("click", function() {
   var sidebar = document.getElementById("sidebar");
   sidebar.classList.toggle("collapsed");
-  this.textContent = sidebar.classList.contains("collapsed") ? "☰ 学校一覧" : "✕ 一覧を閉じる";
+  this.textContent = sidebar.classList.contains("collapsed") ? "☰ フィルタ" : "✕ フィルタを閉じる";
   setTimeout(function() { map.invalidateSize(); }, 350);
 });
 
@@ -2840,6 +2869,28 @@ function closePanel() {
 
 document.getElementById("pc").addEventListener("click", closePanel);
 overlay.addEventListener("click", closePanel);
+
+// ========== 学校一覧ドロワーの開閉 ==========
+var listDrawer = document.getElementById("listDrawer");
+var listToggleBtn = document.getElementById("listToggleBtn");
+var listDrawerClose = document.getElementById("listDrawerClose");
+function openListDrawer(){
+  listDrawer.classList.add("open");
+  listDrawer.setAttribute("aria-hidden", "false");
+  listToggleBtn.classList.add("is-open");
+  listToggleBtn.setAttribute("aria-expanded", "true");
+}
+function closeListDrawer(){
+  listDrawer.classList.remove("open");
+  listDrawer.setAttribute("aria-hidden", "true");
+  listToggleBtn.classList.remove("is-open");
+  listToggleBtn.setAttribute("aria-expanded", "false");
+}
+if (listToggleBtn) listToggleBtn.addEventListener("click", function(){
+  if (listDrawer.classList.contains("open")) closeListDrawer();
+  else openListDrawer();
+});
+if (listDrawerClose) listDrawerClose.addEventListener("click", closeListDrawer);
 
 // ================== 路線セレクター & 光の粒子 ==================
 var RAIL_LINES = [];      // [{op, line, segs:[[[lng,lat],...],...]}]
