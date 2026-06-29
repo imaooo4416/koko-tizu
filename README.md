@@ -22,6 +22,7 @@
 - 学校クリックで最寄駅・路線・徒歩時間・公式サイトのアクセス情報を表示
 - 府県別・エリア別 PDF 出力（A4 横向き、地図と一覧を1ページに、公立/私立を区別）
 - スマホ対応（地図と学校一覧を上下分割表示）
+- **単一府県/市区町村選択時のフォーカス表示**：行政区域(N03)のポリゴンで該当エリアを切り取り、外側を半透明マスクで沈め、境界線をドローインアニメーション付きで強調＋自動ズーム
 
 ## 技術スタック
 
@@ -40,13 +41,14 @@
 | 鉄道路線オーバーレイ | [OpenRailwayMap](https://www.openrailwaymap.org/) | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) |
 | 地図データ（OSM 由来） | [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL |
 | 鉄道路線・駅データ（加工） | [国土数値情報 鉄道時系列データ N02](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-v3_1.html)（国土交通省） | [公共データ利用規約 第1.0版（PDL1.0）](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0) |
+| 行政区域データ（府県境・市区町村境を加工） | [国土数値情報 行政区域 N03-20250101](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2025.html)（国土交通省） | CC BY 4.0 / PDL1.0（出典明記で再配布・改変可） |
 
 出典：「国土数値情報（鉄道時系列データ）」（国土交通省）（https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-v3_1.html）をもとに koko-tizu project が加工して作成。PDL1.0は商用利用・再配布・改変いずれも許諾（CC BY 4.0互換）。加工内容（関西エリア絞り込み・JR西日本東海道線の3区間分割など）は [LICENSE](LICENSE) を参照してください。
 
 ## ライセンス
 
 - **アプリ本体のソースコード（`index.html`）**: [MIT License](LICENSE)
-- **同梱データ（`rail_lines.json` / `rail_stations.json`）**: PDL1.0（国土数値情報 N02 を加工した派生データ／CC BY 4.0互換）
+- **同梱データ（`rail_lines.json` / `rail_stations.json` / `admin_pref.geojson` / `admin_city.geojson`）**: PDL1.0／CC BY 4.0（国土数値情報 N02・N03 を加工した派生データ）
 - **地図タイル・フォント等の第三者依存**: それぞれの規約に従う
 
 詳細は [LICENSE](LICENSE) を参照してください。

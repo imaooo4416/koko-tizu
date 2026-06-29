@@ -105,6 +105,21 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 /* Leaflet marker drop shadow */
 .leaflet-overlay-pane svg path{filter:drop-shadow(0 1.5px 2.5px rgba(61,46,46,.30))}
 
+/* 行政区域マスク: 出現フェード */
+.admin-mask-poly{animation:adminMaskFade .55s var(--ease) both}
+@keyframes adminMaskFade{from{opacity:0}to{opacity:1}}
+
+/* 行政区域ハイライト: 境界線ドローイン＋淡い塗りフェード */
+.admin-highlight-poly{
+  filter:drop-shadow(0 2px 8px rgba(61,46,46,.18));
+  animation:adminHighlightDraw 1.4s var(--ease) both;
+}
+@keyframes adminHighlightDraw{
+  0%{stroke-dasharray:12000;stroke-dashoffset:12000;fill-opacity:0}
+  55%{fill-opacity:0}
+  100%{stroke-dasharray:12000;stroke-dashoffset:0;fill-opacity:.08}
+}
+
 /* 選択高校の波紋 */
 .ripple-icon{background:transparent!important;border:none!important;pointer-events:none;position:relative}
 .ripple-icon .ripple{position:absolute;top:50%;left:50%;width:14px;height:14px;border-radius:50%;border:2.5px solid var(--accent);transform:translate(-50%,-50%);opacity:0;animation:rippleExpand 2.2s var(--ease) infinite;box-shadow:0 0 8px rgba(255,139,123,.35)}
@@ -1309,6 +1324,13 @@ var map = L.map("map", {
   zoomControl: true
 });
 
+// 行政区域マスク用に専用paneを2枚作成
+// maskPane: 反転マスク(外側を暗く), highlightPane: 選択ポリゴンのハイライト
+map.createPane("adminMaskPane");
+map.getPane("adminMaskPane").style.zIndex = 380;       // tile(200)より上、marker(600)より下
+map.createPane("adminHighlightPane");
+map.getPane("adminHighlightPane").style.zIndex = 410;
+
 // ベースタイル: 地理院淡色 / Positron No Labels
 // 出典: 地理院 https://maps.gsi.go.jp/development/ichiran.html / CARTO https://carto.com/attributions
 var tilePale = L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
@@ -1484,7 +1506,148 @@ function isVisible(m) {
   return fs.p[m.p] && fs.t[m.t] && fs.g[GENDER[m.idx]] && matchesCity(m) && matchesQuery(m) && isAlongRail(m);
 }
 
+// 行政区域 GeoJSON (府県境＋市区町村境)
+var ADMIN_PREF = null;
+var ADMIN_CITY = null;
+fetch("admin_pref.geojson").then(function(r){return r.json();}).then(function(d){
+  ADMIN_PREF = d;
+  updateAdminClip();
+}).catch(function(){});
+fetch("admin_city.geojson").then(function(r){return r.json();}).then(function(d){
+  ADMIN_CITY = d;
+  updateAdminClip();
+}).catch(function(){});
+
+// 現在の単一選択を検出: { type:"pref"|"city", feature:..., colorIdx:... } か null
+function detectSingleSelection() {
+  // 府県: 1つだけ true ?
+  var activePrefs = [];
+  for (var i = 0; i < 6; i++) if (fs.p[i]) activePrefs.push(i);
+  if (activePrefs.length !== 1) return null;
+  var p = activePrefs[0];
+  // 同府県内の市区町村: 全表示でなく かつ 1つだけ表示の場合 → city モード
+  if (ADMIN_CITY) {
+    // 該当府県の全市区町村キー
+    var stats = (typeof getActiveCityStats === "function") ? getActiveCityStats() : [];
+    var prefCities = stats.filter(function(s){ return s.pref === p; });
+    var visibleCities = prefCities.filter(function(s){ return !fs.hiddenCities[s.key]; });
+    if (prefCities.length > 1 && visibleCities.length === 1) {
+      var cityName = visibleCities[0].city;
+      var feat = ADMIN_CITY.features.find(function(f){
+        return f.properties.N03_001 === PN[p] && f.properties.N03_004 === cityName;
+      });
+      if (feat) return { type: "city", feature: feat, colorIdx: p };
+    }
+  }
+  // 府県モード
+  if (ADMIN_PREF) {
+    var pf = ADMIN_PREF.features.find(function(f){ return f.properties.N03_001 === PN[p]; });
+    if (pf) return { type: "pref", feature: pf, colorIdx: p };
+  }
+  return null;
+}
+
+// マスク用 worldRing (右回りの大きな長方形 — 緯度経度範囲)
+var WORLD_RING = [[-90,-180],[-90,180],[90,180],[90,-180],[-90,-180]];
+
+// GeoJSON Polygon/MultiPolygon → Leaflet latlngs配列(穴あり) 変換
+function geoToLatLngs(geom) {
+  if (geom.type === "Polygon") {
+    // [[outer], [hole1], ...] (経度,緯度 → 緯度,経度)
+    return geom.coordinates.map(function(ring){
+      return ring.map(function(c){ return [c[1], c[0]]; });
+    });
+  } else if (geom.type === "MultiPolygon") {
+    // L.polygon は MultiPolygon を [[[outer], [hole1]], [[outer2], [hole2]]] で受ける
+    return geom.coordinates.map(function(poly){
+      return poly.map(function(ring){
+        return ring.map(function(c){ return [c[1], c[0]]; });
+      });
+    });
+  }
+  return null;
+}
+
+// 行政区域マスク用レイヤ
+var adminMaskLayer = null;
+var adminHighlightLayer = null;
+
+function clearAdminClip() {
+  if (adminMaskLayer) { map.removeLayer(adminMaskLayer); adminMaskLayer = null; }
+  if (adminHighlightLayer) { map.removeLayer(adminHighlightLayer); adminHighlightLayer = null; }
+}
+
+function drawAdminClip(sel) {
+  clearAdminClip();
+  if (!sel) return;
+  var col = PC[sel.colorIdx];
+  var darkCol = PC_DARK[sel.colorIdx];
+  var rings = geoToLatLngs(sel.feature.geometry);
+  if (!rings) return;
+  // 反転マスク: 世界全体 - 選択ポリゴン(穴として)
+  // L.polygon は [outerRing, hole1, hole2, ...] の形を受ける
+  // 選択がMultiPolygonの場合は各pieceを穴にする
+  var holes = [];
+  if (sel.feature.geometry.type === "Polygon") {
+    holes.push(rings[0]); // 外周だけを穴に
+  } else { // MultiPolygon
+    rings.forEach(function(poly){ holes.push(poly[0]); });
+  }
+  adminMaskLayer = L.polygon([WORLD_RING].concat(holes), {
+    pane: "adminMaskPane",
+    color: "#0a0f1a",
+    fillColor: "#0a0f1a",
+    fillOpacity: 0.45,
+    stroke: false,
+    interactive: false,
+    className: "admin-mask-poly"
+  }).addTo(map);
+  // 内側ハイライト
+  adminHighlightLayer = L.polygon(rings, {
+    pane: "adminHighlightPane",
+    color: darkCol,
+    weight: 2.6,
+    opacity: 0.95,
+    fillColor: col,
+    fillOpacity: 0.06,
+    interactive: false,
+    className: "admin-highlight-poly"
+  }).addTo(map);
+}
+
+// 単一選択時のbounds取得
+function getSelectionBounds(sel) {
+  if (!sel) return null;
+  var b = adminHighlightLayer ? adminHighlightLayer.getBounds() : null;
+  if (b && b.isValid()) return b;
+  // フォールバック: 該当マーカー集計
+  return null;
+}
+
+// updateAdminClip: fs変化時に呼ばれる。drawClip + zoom判定
+function updateAdminClip(opts) {
+  var sel = detectSingleSelection();
+  drawAdminClip(sel);
+  if (opts && opts.zoom !== false && sel) {
+    var b = getSelectionBounds(sel);
+    if (b) map.flyToBounds(b.pad(0.08), { duration: 1.1, easeLinearity: 0.25 });
+  }
+}
+
 function fitMapToVisible() {
+  // 単一選択モードが効くなら、そちらを優先
+  var sel = detectSingleSelection();
+  if (sel) {
+    drawAdminClip(sel);
+    var b = getSelectionBounds(sel);
+    if (b && b.isValid()) {
+      map.flyToBounds(b.pad(0.08), { duration: 1.0, easeLinearity: 0.25 });
+      return;
+    }
+  } else {
+    clearAdminClip();
+  }
+  // 通常: 表示中マーカーから動的算出
   var bounds = [];
   markers.forEach(function(m) {
     if (isVisible(m)) bounds.push([m.lat, m.lng]);
@@ -1633,6 +1796,7 @@ document.querySelectorAll("[data-p]").forEach(function(cb) {
     updateCityFilterButton();
     if (cityModalOverlay.classList.contains("open")) renderCityModal();
     upd();
+    fitMapToVisible();
   });
 });
 document.querySelectorAll("[data-t]").forEach(function(cb) {

@@ -155,6 +155,16 @@ Source: "National Land Numerical Information (Railway Time Series Data)"
   by longitude thresholds: (米原〜京都), (京都〜大阪), (大阪〜姫路).
 - rail_stations.json: N02 station data filtered to the same area, with the
   same regional labelling applied to Tokaido Line stations.
+- admin_pref.geojson, admin_city.geojson: derived from "国土数値情報（行政区域）
+  N03-20250101 (令和7年1月1日基準版)"
+  (https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2025.html),
+  filtered to the Kansai 6-prefecture area and simplified to ~5% (mapshaper
+  -simplify 5% keep-shapes) for browser-side performance. admin_city is
+  dissolved by N03_007 (行政区域コード) with the prefecture/city name kept.
+  admin_pref is further dissolved by N03_001 (都道府県名) into 6 polygons.
+  Note: N03 was originally distributed under PDL1.0; the dataset page since
+  2024 lists CC BY 4.0. Both licenses permit commercial use, redistribution
+  and modification with proper attribution.
 
 The processed JSON files are distributed in this repository under PDL1.0,
 which permits commercial use, redistribution, and modification with proper
