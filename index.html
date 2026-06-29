@@ -335,27 +335,104 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 .city-card-move:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
 .city-empty{display:flex;align-items:center;justify-content:center;min-height:84px;border:1.5px dashed var(--border);border-radius:var(--r-sm);color:var(--ink-faint);font-size:13px;background:rgba(255,255,255,.5)}
 
+/* スマホ用 Bottom Sheet ハンドル(PCでは非表示) */
+#sheet-handle{display:none}
+
+/* スマホ用 地図マーカー・ポップアップ拡大 */
 @media(max-width:767px){
-  #app{flex-direction:column;height:100vh;height:100dvh}
-  /* Map fills the space above the list (no longer forced to 100vh) */
-  #map-wrap{order:1;flex:1 1 auto;min-height:0;height:auto;width:100%}
-  /* School list as a bottom panel that shares the screen with the map */
-  #sidebar{width:100%;min-width:0;height:50vh;max-height:50vh;border-right:none;border-top:1px solid #ddd;order:2;flex-shrink:0;box-shadow:0 -2px 10px rgba(0,0,0,0.08);transition:max-height .3s ease;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-  #sidebar.collapsed{max-height:0;overflow:hidden;border-top:none}
-  /* mobile: school-list自身のスクロールを解除 → 親(#sidebar)で縦スクロール */
-  #school-list{flex:none;overflow:visible}
-  /* Compact header/filters so more room is left for the list */
-  #sidebar-header{padding:8px 14px 6px}
+  /* 大学マーカー(ダイヤモンド)を拡大 */
+  .univ-diamond{width:14px;height:14px}
+  /* 学校ラベルのフォントを少し大きく(視認性) */
+  .leaflet-tooltip.school-label{font-size:12px;padding:2px 6px!important}
+  /* ポップアップ */
+  .leaflet-popup-content-wrapper{border-radius:10px;font-size:13px;line-height:1.55}
+  .leaflet-popup-content{margin:10px 14px;max-width:240px!important}
+  .leaflet-popup-content b{font-size:13.5px}
+  /* 鉄道路線名 tooltip もタッチ時に少し大きく */
+  .leaflet-tooltip.rail-name-tip{font-size:12.5px;padding:6px 12px}
+  /* クラスタバブルもわずかに拡大 */
+  .cluster-bubble span{font-size:15px}
+}
+
+/* スマホ用 タッチターゲット 44px 確保 */
+@media(max-width:767px){
+  /* フィルタチップ(府県・種別など) */
+  .cb{min-height:44px;padding:10px 16px;font-size:13.5px;gap:8px}
+  /* 「市区町村を選択」「路線を選択」等のフィルタボタン */
+  .filter-button{min-height:48px;padding:12px 16px;font-size:14px}
+  /* チップ間の隙間を広げて誤タップ抑制 */
+  .filter-row{gap:10px}
+  /* モーダル内のチップ系(市区町村・路線選択モーダル) */
+  .city-chip,.rail-chip{min-height:38px;padding:9px 14px!important;font-size:12.5px!important}
+  .city-prefall{min-height:34px;padding:6px 12px!important;font-size:11.5px!important}
+  /* PDF 保存ボタンも指で押しやすく */
+  #pdfBtn{min-height:48px;font-size:13.5px}
+  /* 学校一覧アイテム */
+  .school-item{min-height:44px;font-size:13.5px;padding:9px 8px}
+  /* 詳細パネル内の通学圏ボタンなど */
+  .commute-btn{min-height:40px}
+}
+
+/* スマホ用 上部コントロール圧縮 */
+@media(max-width:767px){
+  /* レイヤー切替パネル(詳細/シンプル + 鉄道路線): 1行コンパクト化 */
+  .leaflet-control-layers{padding:3px 5px!important}
+  .leaflet-control-layers-expanded{padding:4px 6px!important}
+  .leaflet-control-layers label{padding:6px 10px!important;font-size:11px!important;min-height:32px;margin:0 2px!important}
+  .leaflet-control-layers-overlays{margin-top:3px;padding-top:4px}
+  /* 「🚆 鉄道路線」テキストを隠してアイコンのみ表示する省スペース化 */
+  .leaflet-control-layers-overlays label{font-size:0!important;padding:6px 9px!important;min-height:32px;line-height:1}
+  .leaflet-control-layers-overlays label::before{content:"🚆";font-size:14px;line-height:1}
+  .leaflet-control-layers-overlays label > span:first-of-type{display:none}
+  /* 学校一覧ボタン: 上端の余裕を確保 */
+  #listToggleBtn{top:8px;right:10px;padding:9px 14px;font-size:12.5px}
+  /* ズームコントロールを上端から少し下げて学校マーカーとの重なりを軽減 */
+  .leaflet-top.leaflet-left{top:6px;left:6px}
+  .leaflet-top.leaflet-right{top:6px;right:6px}
+  /* マップ上端に padding を入れてクラスタマーカーが上端に張り付かないよう */
+  .leaflet-container{font-size:12px}
+}
+
+@media(max-width:767px){
+  /* 地図フル画面 (100dvh)。サイドバーは画面下からオーバーレイで出す Bottom Sheet 化 */
+  #app{display:block;height:100vh;height:100dvh;position:relative;overflow:hidden}
+  #map-wrap{position:absolute;inset:0;width:100%;height:100%}
+  /* Bottom Sheet: 既定は「閉」(下端からハンドルだけ覗く) */
+  #sidebar{
+    position:fixed;left:0;right:0;bottom:0;width:100%;min-width:0;
+    height:88vh;height:88dvh;max-height:88vh;max-height:88dvh;
+    background:var(--surface);border-radius:18px 18px 0 0;
+    box-shadow:0 -6px 24px rgba(0,0,0,.18);
+    transform:translateY(calc(100% - 56px));   /* peek: ハンドル 56px だけ覗かせる */
+    transition:transform .32s cubic-bezier(.4,.0,.2,1);
+    z-index:1200;display:flex;flex-direction:column;
+    border-right:none;border-top:none;
+    padding-bottom:env(safe-area-inset-bottom,0);
+    overflow:hidden;
+  }
+  #sidebar.sheet-half{transform:translateY(50vh);transform:translateY(50dvh)}
+  #sidebar.sheet-full{transform:translateY(0)}
+  /* ハンドル: 上部に固定。タップで段階切替 */
+  #sheet-handle{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    width:100%;min-height:56px;border:none;background:transparent;cursor:pointer;
+    flex-shrink:0;font-family:inherit;color:var(--ink-soft);
+    padding:10px 0 6px;-webkit-tap-highlight-color:transparent;
+  }
+  .sheet-grabber{display:block;width:44px;height:5px;border-radius:3px;background:#d4cdc8}
+  .sheet-handle-text{font-size:12px;font-weight:700;color:var(--ink-soft);letter-spacing:.02em}
+  #sidebar.sheet-full .sheet-handle-text,#sidebar.sheet-half .sheet-handle-text{color:var(--accent-deep)}
+  /* シート内のスクロール領域 (header+filters) を縦スクロール可能に */
+  #sidebar-header,#filters{flex-shrink:0}
+  #sidebar > #sidebar-header,#sidebar > #filters{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  #sidebar{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  /* Compact header */
+  #sidebar-header{padding:6px 16px 8px}
   #sidebar-header h1{font-size:14px;line-height:1.3}
   #sidebar-header .count{font-size:11px;margin-top:1px}
-  #filters{padding:8px 14px}
-  .filter-group{margin-bottom:5px}
-  #search-wrap{margin-bottom:6px}
-  /* Keep last items clear of the floating toggle button */
-  #school-list{padding-bottom:54px}
-  .school-item{font-size:13px;padding:7px 6px}
-  .pref-header{padding:9px 14px}
-  #mobile-toggle{display:block}
+  #filters{padding:8px 16px 24px}
+  .filter-group{margin-bottom:10px}
+  /* Modal/panel sizing on phones */
   #panel{width:100vw;right:-100vw}
   #footer-bar{display:none}
   .city-modal-overlay{padding:10px}
@@ -364,6 +441,8 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
   .city-modal-actions{flex-wrap:wrap;justify-content:flex-end}
   .city-zone-grid{grid-template-columns:1fr;overflow-y:auto}
   .city-card-list{max-height:none;min-height:180px;overflow:visible}
+  /* 古い .collapsed/#mobile-toggle 制御は新シート方式に置換 */
+  #sidebar.collapsed,#mobile-toggle{display:none!important}
 }
 
 /* PDF / print button (screen) */
@@ -416,6 +495,10 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 
 <div id="app">
   <div id="sidebar">
+    <button id="sheet-handle" type="button" aria-label="フィルタを開閉" aria-expanded="false">
+      <span class="sheet-grabber"></span>
+      <span class="sheet-handle-text">フィルタ・設定</span>
+    </button>
     <div id="sidebar-header">
       <h1>関西6府県 高校・大学 所在地マップ</h1>
       <div class="count" id="cnt">329校</div>
@@ -1771,6 +1854,12 @@ L.control.layers(
 ).addTo(map);
 
 // ========== Create markers ==========
+// スマホ判定でマーカーサイズを拡大(タップ精度向上)
+var IS_MOBILE = window.matchMedia("(max-width: 767px)").matches;
+var HS_MARKER_RADIUS = IS_MOBILE ? 7 : 5;
+var HS_MARKER_HOVER  = IS_MOBILE ? 10 : 8;
+var HS_MARKER_EMPHASIZE = IS_MOBILE ? 11 : 9;
+
 var markers = [];
 // クラスタリング: 密集したマーカーを数字バブルに集約 (ズームで分解)
 var markerLayer = L.markerClusterGroup({
@@ -1818,7 +1907,7 @@ S.forEach(function(s, i) {
   var lng = G[ci][1] + dist * Math.cos(angle);
 
   var marker = L.circleMarker([lat, lng], {
-    radius: 5,
+    radius: HS_MARKER_RADIUS,
     fillColor: type === 0 ? color : "#ffffff",
     color: type === 0 ? darkColor : color,
     weight: 2,
@@ -1858,12 +1947,12 @@ S.forEach(function(s, i) {
 
   marker.on("mouseover", function(e) {
     this.openPopup();
-    this.setStyle({radius: 8, weight: 2.5});
+    this.setStyle({radius: HS_MARKER_HOVER, weight: 2.5});
   });
 
   marker.on("mouseout", function(e) {
     this.closePopup();
-    this.setStyle({radius: 5, weight: 2});
+    this.setStyle({radius: HS_MARKER_RADIUS, weight: 2});
   });
 
   marker.addTo(markerLayer);
@@ -2508,11 +2597,11 @@ function makeListItem(m) {
 
   if (!isUniv) {
     item.addEventListener("mouseenter", function() {
-      m.marker.setStyle({radius: 9, weight: 3, fillOpacity: 1});
+      m.marker.setStyle({radius: HS_MARKER_EMPHASIZE, weight: 3, fillOpacity: 1});
       item.classList.add("highlighted");
     });
     item.addEventListener("mouseleave", function() {
-      m.marker.setStyle({radius: 5, weight: 2, fillOpacity: m.t === 0 ? 0.95 : 1});
+      m.marker.setStyle({radius: HS_MARKER_RADIUS, weight: 2, fillOpacity: m.t === 0 ? 0.95 : 1});
       item.classList.remove("highlighted");
     });
   } else {
@@ -2598,13 +2687,46 @@ document.querySelectorAll(".kind-tab").forEach(function(btn){
 updateCityFilterButton();
 upd();
 
-// ========== Mobile toggle ==========
-document.getElementById("mobile-toggle").addEventListener("click", function() {
+// ========== Mobile Bottom Sheet ==========
+// 3段階 (peek → half → full → peek) を sheet-handle タップで巡回。
+(function(){
   var sidebar = document.getElementById("sidebar");
-  sidebar.classList.toggle("collapsed");
-  this.textContent = sidebar.classList.contains("collapsed") ? "☰ フィルタ" : "✕ フィルタを閉じる";
-  setTimeout(function() { map.invalidateSize(); }, 350);
-});
+  var handle = document.getElementById("sheet-handle");
+  if (!handle || !sidebar) return;
+  var STATES = ["peek","half","full"];
+  var current = 0;  // peek
+  function apply(){
+    sidebar.classList.remove("sheet-half","sheet-full");
+    if (STATES[current] === "half") sidebar.classList.add("sheet-half");
+    if (STATES[current] === "full") sidebar.classList.add("sheet-full");
+    handle.setAttribute("aria-expanded", current === 0 ? "false" : "true");
+    setTimeout(function(){ if (window.map && map.invalidateSize) map.invalidateSize(); }, 340);
+  }
+  handle.addEventListener("click", function(){
+    current = (current + 1) % STATES.length;
+    apply();
+  });
+  // 簡易スワイプ対応: シート上端をタッチして上下にドラッグした距離で状態切替
+  var touchY0 = null;
+  handle.addEventListener("touchstart", function(e){ touchY0 = e.touches[0].clientY; }, {passive:true});
+  handle.addEventListener("touchend", function(e){
+    if (touchY0 == null) return;
+    var dy = e.changedTouches[0].clientY - touchY0;
+    touchY0 = null;
+    if (Math.abs(dy) < 30) return;
+    if (dy < 0 && current < STATES.length - 1) { current++; apply(); }
+    if (dy > 0 && current > 0) { current--; apply(); }
+  });
+})();
+// 旧 mobile-toggle ボタンは非表示化済みだが、念のため click でシート full 表示にフォールバック
+(function(){
+  var btn = document.getElementById("mobile-toggle");
+  if (!btn) return;
+  btn.addEventListener("click", function(){
+    var s = document.getElementById("sidebar");
+    if (s) { s.classList.add("sheet-full"); s.classList.remove("sheet-half"); }
+  });
+})();
 
 // ========== PDF / print: per-prefecture "SCHOOL MAP" pages ==========
 var paMaps = [];
