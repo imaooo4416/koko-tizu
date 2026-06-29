@@ -64,7 +64,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 .cb:has(input[data-p="4"]:checked){background:#F08585;color:#fff;border-color:#F08585}
 .cb:has(input[data-p="5"]:checked){background:#5DC5D6;color:#fff;border-color:#5DC5D6}
 /* 種別・別学のON: コーラルで塗りつぶし＋白文字（府県と同じ挙動） */
-.cb:has(input[data-t]:checked),.cb:has(input[data-g]:checked){background:var(--accent);color:#fff;border-color:var(--accent)}
+.cb:has(input[data-t]:checked),.cb:has(input[data-g]:checked),.cb:has(input[data-kind]:checked),.cb:has(input[data-ut]:checked){background:var(--accent);color:#fff;border-color:var(--accent)}
 /* 沿線モードトグル */
 .cb:has(#alongRailToggle:checked){background:var(--mint);color:#fff;border-color:var(--mint)}
 
@@ -104,6 +104,11 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 
 /* Leaflet marker drop shadow */
 .leaflet-overlay-pane svg path{filter:drop-shadow(0 1.5px 2.5px rgba(61,46,46,.30))}
+
+/* University diamond marker */
+.univ-marker{background:transparent;border:0}
+.univ-diamond{width:11px;height:11px;transform:rotate(45deg);border-radius:1px;box-sizing:border-box;filter:drop-shadow(0 1.5px 2.5px rgba(61,46,46,.30))}
+.univ-label{font-weight:600}
 
 /* 選択中の鉄道路線: ドット点列の各点を光らせる(currentColorで路線色のグロー) */
 /* stroke-dashoffsetをCSSで連続シフト → 各ドットが点滅しながら流れているように見える */
@@ -336,10 +341,24 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
         </button>
       </div>
       <div class="filter-group">
-        <b>種別</b>
+        <b>表示する学校</b>
+        <div class="filter-row">
+          <label class="cb"><input type="checkbox" checked data-kind="0">&#9679; 高校</label>
+          <label class="cb"><input type="checkbox" checked data-kind="1">&#9670; 大学</label>
+        </div>
+      </div>
+      <div class="filter-group">
+        <b>高校 種別</b>
         <div class="filter-row">
           <label class="cb"><input type="checkbox" checked data-t="0">&#9679; 公立</label>
           <label class="cb"><input type="checkbox" checked data-t="1">&#9675; 私立</label>
+        </div>
+      </div>
+      <div class="filter-group">
+        <b>大学 種別</b>
+        <div class="filter-row">
+          <label class="cb"><input type="checkbox" checked data-ut="0">&#9670; 国公立</label>
+          <label class="cb"><input type="checkbox" checked data-ut="1">&#9671; 私立</label>
         </div>
       </div>
       <div class="filter-group">
@@ -1309,6 +1328,243 @@ var ACC={
 "りら創造芸術":{s:"貴志",l:"和歌山電鉄貴志川線＋スクールバス",u:"https://www.lyra-art.jp/"}
 };
 
+// Universities data (auto-generated)
+var GU=[
+[34.8271,135.5164],[34.4052,135.3868],[34.5453,135.5837],[34.6859,135.5198],[34.7733,135.5667],
+[34.7796,135.5474],[34.3797,135.3586],[34.6934,135.5196],[34.711,135.5592],[34.4109,135.2956],
+[34.5457,135.5065],[34.5927,135.5075],[34.6868,135.5388],[34.6464,135.5097],[34.8518,135.6254],
+[34.6668,135.5853],[34.7474,135.6036],[34.8197,135.5213],[34.8232,135.4916],[34.8228,135.4716],
+[34.6759,135.5275],[34.7738,135.5415],[34.7307,135.5439],[34.8414,135.705],[34.7593,135.5371],
+[34.6477,135.5185],[34.5509,135.6495],[34.6637,135.5774],[34.8586,135.6761],[34.8278,135.6589],
+[34.533,135.4629],[34.7079,135.6398],[34.7503,135.5444],[34.6072,135.5387],[34.5115,135.6312],
+[34.8279,135.5802],[34.3929,135.3395],[34.7421,135.6588],[34.7601,135.6269],[34.8341,135.4569],
+[34.7533,135.4707],[34.525,135.5789],[34.4899,135.5323],[34.7795,135.6117],[34.8494,135.706],
+[34.4515,135.4541],[34.8431,135.5353],[34.6414,135.4136],[34.6347,135.4277],[34.6839,135.4995],
+[34.6512,135.5869],[34.8488,135.5577],[34.8379,135.5772],[34.8186,135.6456],[34.8233,135.6641],
+[34.823,135.6571],[34.7703,135.5082],[34.5715,135.473],[34.878,135.5755],[34.8503,135.6178],
+[34.5921,135.5354],[34.8959,134.9925],[34.8499,134.6628],[34.8398,134.6824],[34.6553,134.9826],
+[34.5559,134.9659],[34.7235,135.0567],[34.7723,134.5921],[34.8508,134.7058],[34.8027,135.3576],
+[34.805,135.3601],[34.735,135.358],[34.718,135.3434],[34.7163,135.3553],[34.7195,135.0606],
+[34.6549,135.2168],[34.7223,135.2867],[34.7384,135.3415],[34.7383,135.2906],[34.6789,135.1581],
+[34.9483,134.7595],[34.6919,135.2729],[34.7251,135.2402],[34.7264,135.2391],[34.6643,135.0792],
+[34.6798,135.1755],[34.7117,135.275],[34.7305,135.2398],[34.7287,135.2363],[34.6635,135.2126],
+[34.67,135.1262],[34.7654,135.3482],[34.6708,135.2138],[34.6884,135.0414],[34.7228,135.0612],
+[34.6669,135.212],[34.6694,135.1487],[34.7196,135.2278],[34.6504,135.1107],[34.7249,135.0578],
+[34.7244,135.2784],[34.7396,135.1432],[34.747,135.3162],[34.7868,135.0014],[34.733,135.4198],
+[34.8743,135.1956],[34.7613,135.3534],[34.7641,135.3473],[34.4421,134.9094],[35.0469,135.7708],
+[35.0008,135.5703],[35.0086,135.7117],[34.9986,135.7228],[35.0072,135.7344],[35.0314,135.7831],
+[35.0264,135.7807],[34.9097,135.8081],[34.9744,135.6647],[34.9883,135.7758],[35.0214,135.6794],
+[35.0497,135.7822],[34.9858,135.7619],[35.0228,135.7686],[35.0419,135.7647],[34.9514,135.7711],
+[34.9728,135.8275],[35.0717,135.7569],[35.005,135.7378],[35.0825,135.7842],[34.9908,135.7717],
+[35.0414,135.7969],[35.0072,135.7806],[34.9931,135.8181],[35.0108,135.7397],[35.0444,135.7414],
+[34.8108,135.7222],[35.0297,135.7592],[34.8136,135.7228],[35.0294,135.7625],[35.0444,135.7556],
+[35.0186,135.6747],[35.0181,135.7592],[35.1683,135.5169],[35.2939,135.1303],[34.9358,135.7611],
+[35.0103,135.7411],[35.0339,135.7242],[35.0136,135.7331],[34.9858,135.7472],[34.965,135.7711],
+[34.602,135.8395],[34.584,135.8438],[34.5957,135.833],[34.732,135.7867],[34.6883,135.8282],
+[34.7197,135.728],[34.677,135.8366],[34.5008,135.7866],[34.6817,135.8235],[34.694,135.7475],
+[34.681,135.733],[34.544,135.73],[34.6857,135.7233],[35.2358,135.9215],[35.123,135.8888],
+[34.9744,135.9332],[34.9784,135.9105],[35.2761,136.2466],[35.2418,136.2347],[34.9817,135.9645],
+[35.2295,136.2008],[35.3645,136.271],[34.967,135.941],[34.228,135.166],[34.2657,135.1517],
+[34.1933,135.1822],[34.2298,135.1718],[34.1888,135.1837],[34.236,135.1858],[34.231,135.1735],
+[34.2675,135.3617],[34.2155,135.5832]
+];
+
+var U=[
+["千里金蘭大学",0,1,0],["和泉大学",1,1,0],["四天王寺大学(羽曳野キャンパス)",2,1,0],["大手前大学(大阪大手前キャンパス)",3,1,0],["大阪人間科学大学(庄屋キャンパス)",4,1,0],["大阪人間科学大学(正雀キャンパス)",5,1,0],["大阪体育大学(熊取キャンパス)",6,1,0],["大阪保健医療大学(天満橋キャンパス)",7,1,0],["大阪信愛学院大学(城東キャンパス)",8,1,0],["大阪公立大学(りんくうキャンパス)",9,0,0],["大阪公立大学(中百舌鳥キャンパス)",10,0,0],["大阪公立大学(杉本キャンパス)",11,0,0],["大阪公立大学(森之宮キャンパス)",12,0,0],["大阪公立大学(阿倍野キャンパス)",13,0,0],["大阪医科薬科大学",14,1,0],["大阪商業大学(東大阪キャンパス)",15,1,0],["大阪国際大学(守口キャンパス)",16,1,0],["大阪大学(吹田キャンパス)",17,0,0],["大阪大学(箕面キャンパス)",18,0,0],["大阪大学(豊中キャンパス)",19,0,0],["大阪女学院大学",20,1,0],["大阪学院大学(吹田キャンパス)",21,1,0],["大阪工業大学(大宮キャンパス)",22,1,0],["大阪工業大学(枚方キャンパス)",23,1,0],["大阪成蹊大学(相川キャンパス)",24,1,0],["大阪教育大学(天王寺キャンパス)",25,0,0],["大阪教育大学(柏原キャンパス)",26,0,0],["大阪樟蔭女子大学(小阪キャンパス)",27,1,0],["大阪歯科大学(楠葉キャンパス)",28,1,0],["大阪歯科大学(牧野キャンパス)",29,1,0],["大阪物療大学",30,1,0],["大阪産業大学",31,1,0],["大阪経済大学(大隅キャンパス)",32,1,0],["大阪総合保育大学",33,1,0],["大阪芸術大学",34,1,0],["大阪行岡医療大学",35,1,0],["大阪観光大学",36,1,0],["大阪電気通信大学(四條畷キャンパス)",37,1,0],["大阪電気通信大学(寝屋川キャンパス)",38,1,0],["大阪青山大学(箕面キャンパス)",39,1,0],["大阪音楽大学",40,1,0],["太成学院大学(美原キャンパス)",41,1,0],["帝塚山学院大学(泉ヶ丘キャンパス)",42,1,0],["摂南大学(寝屋川キャンパス)",43,1,0],["摂南大学(枚方キャンパス)",44,1,0],["桃山学院大学(和泉キャンパス)",45,1,0],["梅花女子大学(茨木キャンパス)",46,1,0],["森ノ宮医療大学",47,1,0],["相愛大学(南港キャンパス)",48,1,0],["相愛大学(本町キャンパス)",49,1,0],["近畿大学(東大阪キャンパス)",50,1,0],["追手門学院大学(茨木安威キャンパス)",51,1,0],["追手門学院大学(茨木総持寺キャンパス)",52,1,0],["関西医科大学(枚方キャンパス)",53,1,0],["関西外国語大学(中宮キャンパス)",54,1,0],["関西外国語大学(御殿山キャンパス)",55,1,0],["関西大学(千里山キャンパス)",56,1,0],["関西大学(堺キャンパス)",57,1,0],["関西大学(高槻キャンパス)",58,1,0],["関西大学(高槻ミューズキャンパス)",59,1,0],["阪南大学",60,1,0],
+["兵庫教育大学(加東キャンパス)",61,0,1],["兵庫県立大学(姫路工学キャンパス)",62,0,1],["兵庫県立大学(姫路書写キャンパス)",63,0,1],["兵庫県立大学(明石キャンパス)",64,0,1],["兵庫県立大学(淡路キャンパス)",65,0,1],["兵庫県立大学(神戸商科キャンパス)",66,0,1],["姫路大学(姫路キャンパス)",67,1,1],["姫路獨協大学(姫路キャンパス)",68,1,1],["宝塚医療大学(宝塚キャンパス)",69,1,1],["宝塚大学(宝塚キャンパス)",70,1,1],["武庫川女子大学(上甲子園キャンパス)",71,1,1],["武庫川女子大学(中央キャンパス)",72,1,1],["武庫川女子大学(浜甲子園キャンパス)",73,1,1],["流通科学大学(神戸キャンパス)",74,1,1],["甲南大学(ポートアイランドキャンパス)",75,1,1],["甲南大学(岡本キャンパス)",76,1,1],["甲南大学(西宮キャンパス)",77,1,1],["甲南女子大学(神戸キャンパス)",78,1,1],["神戸医療未来大学(神戸キャンパス)",79,1,1],["神戸医療福祉大学(中町キャンパス)",80,1,1],["神戸国際大学(六甲アイランドキャンパス)",81,1,1],["神戸大学(六甲台第1キャンパス)",82,0,1],["神戸大学(六甲台第2キャンパス)",83,0,1],["神戸大学(名谷キャンパス)",84,0,1],["神戸大学(楠キャンパス)",85,0,1],["神戸大学(深江キャンパス)",86,0,1],["神戸大学(鶴甲第1キャンパス)",87,0,1],["神戸大学(鶴甲第2キャンパス)",88,0,1],["神戸女子大学(ポートアイランドキャンパス)",89,1,1],["神戸女子大学(須磨キャンパス)",90,1,1],["神戸女学院大学(西宮キャンパス)",91,1,1],["神戸学院大学(ポートアイランドキャンパス)",92,1,1],["神戸学院大学(有瀬キャンパス)",93,1,1],["神戸市外国語大学(学園都市キャンパス)",94,0,1],["神戸市看護大学(ポートアイランドキャンパス)",95,0,1],["神戸常盤大学(長田キャンパス)",96,1,1],["神戸松蔭女子学院大学(六甲キャンパス)",97,1,1],["神戸海星女子学院大学(塩屋キャンパス)",98,1,1],["神戸芸術工科大学(学園都市キャンパス)",99,1,1],["神戸薬科大学(本山キャンパス)",100,1,1],["神戸親和大学(鈴蘭台キャンパス)",101,1,1],["芦屋大学(芦屋キャンパス)",102,1,1],["関西国際大学(三木キャンパス)",103,1,1],["関西国際大学(尼崎キャンパス)",104,1,1],["関西学院大学(神戸三田キャンパス)",105,1,1],["関西学院大学(西宮上ケ原キャンパス)",106,1,1],["関西学院大学(西宮聖和キャンパス)",107,1,1],["関西看護医療大学(淡路キャンパス)",108,1,1],
+["京都ノートルダム女子大学",109,1,2],["京都先端科学大学(亀岡キャンパス)",110,1,2],["京都先端科学大学(太秦キャンパス)",111,1,2],["京都光華女子大学",112,1,2],["京都外国語大学",113,1,2],["京都大学(北部キャンパス)",114,0,2],["京都大学(吉田キャンパス)",115,0,2],["京都大学(宇治キャンパス)",116,0,2],["京都大学(桂キャンパス)",117,0,2],["京都女子大学(東山キャンパス)",118,1,2],["京都工芸繊維大学(嵯峨キャンパス)",119,0,2],["京都工芸繊維大学(松ヶ崎キャンパス)",120,0,2],["京都市立芸術大学(京都駅東部キャンパス)",121,0,2],["京都府立医科大学(河原町キャンパス)",122,0,2],["京都府立大学(下鴨キャンパス)",123,0,2],["京都教育大学(藤森キャンパス)",124,0,2],["京都橘大学(山科キャンパス)",125,1,2],["京都産業大学(神山キャンパス)",126,1,2],["京都看護大学",127,1,2],["京都精華大学",128,1,2],["京都美術工芸大学(京都東山キャンパス)",129,1,2],["京都芸術大学(瓜生山キャンパス)",130,1,2],["京都華頂大学",131,1,2],["京都薬科大学",132,1,2],["佛教大学(二条キャンパス)",133,1,2],["佛教大学(紫野キャンパス)",134,1,2],["同志社大学(京田辺キャンパス)",135,1,2],["同志社大学(今出川キャンパス)",136,1,2],["同志社女子大学(京田辺キャンパス)",137,1,2],["同志社女子大学(今出川キャンパス)",138,1,2],["大谷大学",139,1,2],["嵯峨美術大学",140,1,2],["平安女学院大学(京都キャンパス)",141,1,2],["明治国際医療大学",142,1,2],["福知山公立大学(福知山キャンパス)",143,0,2],["種智院大学",144,1,2],["立命館大学(朱雀キャンパス)",145,1,2],["立命館大学(衣笠キャンパス)",146,1,2],["花園大学",147,1,2],["龍谷大学(大宮キャンパス)",148,1,2],["龍谷大学(深草キャンパス)",149,1,2],
+["天理大学(別所キャンパス)",150,1,3],["天理大学(杣之内キャンパス)",151,1,3],["天理大学(田井庄キャンパス)",152,1,3],["奈良大学",153,1,3],["奈良女子大学",154,0,3],["奈良学園大学(登美ヶ丘キャンパス)",155,1,3],["奈良教育大学",156,0,3],["奈良県立医科大学(四条キャンパス)",157,0,3],["奈良県立大学",158,0,3],["帝塚山大学(学園前キャンパス)",159,1,3],["帝塚山大学(東生駒キャンパス)",160,1,3],["畿央大学",161,1,3],["近畿大学(奈良キャンパス)",162,1,3],
+["びわこ成蹊スポーツ大学",163,1,4],["成安造形大学",164,1,4],["滋賀医科大学",165,0,4],["滋賀大学(大津キャンパス)",166,0,4],["滋賀大学(彦根キャンパス)",167,0,4],["滋賀県立大学",168,0,4],["立命館大学(びわこ・くさつキャンパス)",169,1,4],["聖泉大学",170,1,4],["長浜バイオ大学",171,1,4],["龍谷大学(瀬田キャンパス)",172,1,4],
+["和歌山信愛大学",173,1,5],["和歌山大学",174,0,5],["和歌山県立医科大学(三葛キャンパス)",175,0,5],["和歌山県立医科大学(伏虎キャンパス)",176,0,5],["和歌山県立医科大学(紀三井寺キャンパス)",177,0,5],["宝塚医療大学(和歌山中之島キャンパス)",178,1,5],["東京医療保健大学(雄湊キャンパス)",179,1,5],["近畿大学(和歌山キャンパス)",180,1,5],["高野山大学",181,1,5]
+];
+
+var UCITY=["吹田市","貝塚市","羽曳野市","大阪市中央区","摂津市","摂津市","泉南郡熊取町","大阪市北区","大阪市城東区","泉佐野市","堺市中区","大阪市住吉区","大阪市城東区","大阪市阿倍野区","高槻市","東大阪市","守口市","吹田市","箕面市","豊中市","大阪市中央区","吹田市","大阪市旭区","枚方市","大阪市東淀川区","大阪市天王寺区","柏原市","東大阪市","枚方市","枚方市","堺市西区","大東市","大阪市東淀川区","大阪市東住吉区","南河内郡河南町","茨木市","熊取町","四條畷市","寝屋川市","箕面市","豊中市","堺市美原区","堺市南区","寝屋川市","枚方市","和泉市","茨木市","大阪市住之江区","大阪市住之江区","大阪市中央区","東大阪市","茨木市","茨木市","枚方市","枚方市","枚方市","吹田市","堺市堺区","高槻市","高槻市","松原市","加東市","姫路市","姫路市","明石市","淡路市","神戸市西区","姫路市","姫路市","宝塚市","宝塚市","西宮市","西宮市","西宮市","神戸市西区","神戸市中央区","神戸市東灘区","西宮市","神戸市東灘区","神戸市長田区","神崎郡福崎町","神戸市東灘区","神戸市灘区","神戸市灘区","神戸市須磨区","神戸市中央区","神戸市東灘区","神戸市灘区","神戸市灘区","神戸市中央区","神戸市須磨区","西宮市","神戸市中央区","神戸市西区","神戸市西区","神戸市中央区","神戸市長田区","神戸市灘区","神戸市須磨区","神戸市西区","神戸市東灘区","神戸市北区","芦屋市","三木市","尼崎市","三田市","西宮市","西宮市","淡路市","京都市左京区","亀岡市","京都市右京区","京都市右京区","京都市右京区","京都市左京区","京都市左京区","宇治市","京都市西京区","京都市東山区","京都市右京区","京都市左京区","京都市下京区","京都市上京区","京都市左京区","京都市伏見区","京都市山科区","京都市北区","京都市右京区","京都市左京区","京都市東山区","京都市左京区","京都市東山区","京都市山科区","京都市中京区","京都市北区","京田辺市","京都市上京区","京田辺市","京都市上京区","京都市北区","京都市右京区","京都市上京区","南丹市","福知山市","京都市伏見区","京都市中京区","京都市北区","京都市中京区","京都市下京区","京都市伏見区","天理市","天理市","天理市","奈良市","奈良市","奈良市","奈良市","橿原市","奈良市","奈良市","奈良市","広陵町","奈良市","大津市","大津市","大津市","大津市","彦根市","彦根市","草津市","彦根市","長浜市","大津市","和歌山市","和歌山市","和歌山市","和歌山市","和歌山市","和歌山市","和歌山市","紀の川市","高野町"];
+
+var UACC={
+"千里金蘭大学":{s:"北千里",l:"阪急千里線",u:"https://www.kinran.ac.jp/"},
+"和泉大学":{s:"水間観音",l:"水間鉄道",u:"https://www.kawasakigakuen.ac.jp/"},
+"四天王寺大学(羽曳野キャンパス)":{s:"藤井寺",l:"近鉄南大阪線",u:"https://www.shitennoji.ac.jp/"},
+"大手前大学(大阪大手前キャンパス)":{s:"天満橋",l:"京阪本線",u:"https://www.otemae.ac.jp/"},
+"大阪人間科学大学(庄屋キャンパス)":{s:"摂津",l:"大阪モノレール",u:"https://www.ohs.ac.jp/"},
+"大阪人間科学大学(正雀キャンパス)":{s:"正雀",l:"阪急京都線",u:"https://www.ohs.ac.jp/"},
+"大阪体育大学(熊取キャンパス)":{s:"熊取",l:"JR阪和線",u:"https://www.ouhs.jp/"},
+"大阪保健医療大学(天満橋キャンパス)":{s:"天満橋",l:"京阪本線",u:"https://ohsu.ac.jp/"},
+"大阪信愛学院大学(城東キャンパス)":{s:"新森古市",l:"大阪メトロ今里筋線",u:"https://www.osgu.ac.jp/"},
+"大阪公立大学(りんくうキャンパス)":{s:"りんくうタウン",l:"JR関西空港線",u:"https://www.omu.ac.jp/"},
+"大阪公立大学(中百舌鳥キャンパス)":{s:"中百舌鳥",l:"南海高野線",u:"https://www.omu.ac.jp/"},
+"大阪公立大学(杉本キャンパス)":{s:"杉本町",l:"JR阪和線",u:"https://www.omu.ac.jp/"},
+"大阪公立大学(森之宮キャンパス)":{s:"大阪城公園",l:"JR大阪環状線",u:"https://www.omu.ac.jp/"},
+"大阪公立大学(阿倍野キャンパス)":{s:"天王寺",l:"JR大阪環状線",u:"https://www.omu.ac.jp/"},
+"大阪医科薬科大学":{s:"阪急高槻市",l:"阪急京都線",u:"https://www.ompu.ac.jp/"},
+"大阪商業大学(東大阪キャンパス)":{s:"河内小阪",l:"近鉄奈良線",u:"https://ouc.daishodai.ac.jp/"},
+"大阪国際大学(守口キャンパス)":{s:"大和田",l:"京阪本線",u:"https://www.oiu.ac.jp/"},
+"大阪大学(吹田キャンパス)":{s:"阪大病院前",l:"大阪モノレール彩都線",u:"https://www.osaka-u.ac.jp/"},
+"大阪大学(箕面キャンパス)":{s:"箕面船場阪大前",l:"北大阪急行線",u:"https://www.osaka-u.ac.jp/"},
+"大阪大学(豊中キャンパス)":{s:"柴原阪大前",l:"大阪モノレール",u:"https://www.osaka-u.ac.jp/"},
+"大阪女学院大学":{s:"玉造",l:"JR大阪環状線",u:"https://www.wilmina.ac.jp/"},
+"大阪学院大学(吹田キャンパス)":{s:"正雀",l:"阪急京都線",u:"https://www.osaka-gu.ac.jp/"},
+"大阪工業大学(大宮キャンパス)":{s:"千林大宮",l:"大阪メトロ谷町線",u:"https://www.oit.ac.jp/"},
+"大阪工業大学(枚方キャンパス)":{s:"長尾",l:"JR片町線",u:"https://www.oit.ac.jp/"},
+"大阪成蹊大学(相川キャンパス)":{s:"相川",l:"阪急京都線",u:"https://univ.osaka-seikei.jp/"},
+"大阪教育大学(天王寺キャンパス)":{s:"天王寺",l:"JR大阪環状線",u:"https://osaka-kyoiku.ac.jp/"},
+"大阪教育大学(柏原キャンパス)":{s:"大阪教育大前",l:"近鉄大阪線",u:"https://osaka-kyoiku.ac.jp/"},
+"大阪樟蔭女子大学(小阪キャンパス)":{s:"河内小阪",l:"近鉄奈良線",u:"https://www.osaka-shoin.ac.jp/"},
+"大阪歯科大学(楠葉キャンパス)":{s:"樟葉",l:"京阪本線",u:"https://www.osaka-dent.ac.jp/"},
+"大阪歯科大学(牧野キャンパス)":{s:"牧野",l:"京阪本線",u:"https://www.osaka-dent.ac.jp/"},
+"大阪物療大学":{s:"鳳",l:"JR阪和線",u:"https://www.butsuryo.ac.jp/"},
+"大阪産業大学":{s:"住道",l:"JR片町線",u:"https://www.osaka-sandai.ac.jp/"},
+"大阪経済大学(大隅キャンパス)":{s:"瑞光四丁目",l:"大阪メトロ今里筋線",u:"https://www.osaka-ue.ac.jp/"},
+"大阪総合保育大学":{s:"湯里六丁目",l:"近鉄南大阪線",u:"https://jonan.jp/daigaku/"},
+"大阪芸術大学":{s:"喜志",l:"近鉄長野線",u:"https://www.osaka-geidai.ac.jp/"},
+"大阪行岡医療大学":{s:"JR総持寺",l:"JR京都線",u:"https://www.yukioka-u.ac.jp/"},
+"大阪観光大学":{s:"日根野",l:"JR阪和線",u:"https://www.tourism.ac.jp/"},
+"大阪電気通信大学(四條畷キャンパス)":{s:"四条畷",l:"JR学研都市線",u:"https://www.osakac.ac.jp/"},
+"大阪電気通信大学(寝屋川キャンパス)":{s:"寝屋川市",l:"京阪本線",u:"https://www.osakac.ac.jp/"},
+"大阪青山大学(箕面キャンパス)":{s:"箕面",l:"阪急箕面線",u:"https://www.osaka-aoyama.ac.jp/"},
+"大阪音楽大学":{s:"庄内",l:"阪急宝塚線",u:"https://www.daion.ac.jp/"},
+"太成学院大学(美原キャンパス)":{s:"喜志",l:"近鉄長野線",u:"https://www.tgu.ac.jp/"},
+"帝塚山学院大学(泉ヶ丘キャンパス)":{s:"泉ヶ丘",l:"泉北高速鉄道",u:"https://www.tezuka-gu.ac.jp/"},
+"摂南大学(寝屋川キャンパス)":{s:"香里園",l:"京阪本線",u:"https://www.setsunan.ac.jp/"},
+"摂南大学(枚方キャンパス)":{s:"長尾",l:"JR学研都市線",u:"https://www.setsunan.ac.jp/"},
+"桃山学院大学(和泉キャンパス)":{s:"和泉中央",l:"泉北高速鉄道",u:"https://www.andrew.ac.jp/"},
+"梅花女子大学(茨木キャンパス)":{s:"千里中央",l:"北大阪急行",u:"https://www.baika.ac.jp/"},
+"森ノ宮医療大学":{s:"コスモスクエア",l:"大阪メトロ中央線",u:"https://www.morinomiya-u.ac.jp/"},
+"相愛大学(南港キャンパス)":{s:"ポートタウン東",l:"大阪メトロ南港ポートタウン線",u:"https://www.soai.ac.jp/"},
+"相愛大学(本町キャンパス)":{s:"本町",l:"大阪メトロ御堂筋線",u:"https://www.soai.ac.jp/"},
+"近畿大学(東大阪キャンパス)":{s:"長瀬",l:"近鉄大阪線",u:"https://www.kindai.ac.jp/"},
+"追手門学院大学(茨木安威キャンパス)":{s:"茨木",l:"JR京都線",u:"https://www.otemon.ac.jp/"},
+"追手門学院大学(茨木総持寺キャンパス)":{s:"JR総持寺",l:"JR京都線",u:"https://www.otemon.ac.jp/"},
+"関西医科大学(枚方キャンパス)":{s:"枚方市",l:"京阪本線",u:"https://www.kmu.ac.jp/"},
+"関西外国語大学(中宮キャンパス)":{s:"枚方市",l:"京阪本線",u:"https://www.kansaigaidai.ac.jp/"},
+"関西外国語大学(御殿山キャンパス)":{s:"御殿山",l:"京阪本線",u:"https://www.kansaigaidai.ac.jp/"},
+"関西大学(千里山キャンパス)":{s:"関大前",l:"阪急千里線",u:"https://www.kansai-u.ac.jp/"},
+"関西大学(堺キャンパス)":{s:"浅香山",l:"南海高野線",u:"https://www.kansai-u.ac.jp/"},
+"関西大学(高槻キャンパス)":{s:"JR高槻",l:"JR京都線",u:"https://www.kansai-u.ac.jp/"},
+"関西大学(高槻ミューズキャンパス)":{s:"JR高槻",l:"JR京都線",u:"https://www.kansai-u.ac.jp/"},
+"阪南大学":{s:"河内天美",l:"近鉄南大阪線",u:"https://www.hannan-u.ac.jp/"},
+"兵庫教育大学(加東キャンパス)":{s:"社町",l:"JR加古川線",u:"https://www.hyogo-u.ac.jp/"},
+"兵庫県立大学(姫路工学キャンパス)":{s:"姫路",l:"JR山陽本線",u:"https://www.u-hyogo.ac.jp/"},
+"兵庫県立大学(姫路書写キャンパス)":{s:"姫路",l:"JR山陽本線",u:"https://www.u-hyogo.ac.jp/"},
+"兵庫県立大学(明石キャンパス)":{s:"西明石",l:"JR山陽本線",u:"https://www.u-hyogo.ac.jp/"},
+"兵庫県立大学(淡路キャンパス)":{s:"舞子",l:"JR山陽本線",u:"https://www.u-hyogo.ac.jp/"},
+"兵庫県立大学(神戸商科キャンパス)":{s:"学園都市",l:"神戸市営地下鉄西神・山手線",u:"https://www.u-hyogo.ac.jp/"},
+"姫路大学(姫路キャンパス)":{s:"大塩",l:"山陽電鉄本線",u:"https://www.himeji-u.ac.jp/"},
+"姫路獨協大学(姫路キャンパス)":{s:"姫路",l:"JR山陽本線",u:"https://www.himeji-du.ac.jp/"},
+"宝塚医療大学(宝塚キャンパス)":{s:"花屋敷",l:"能勢電鉄妙見線",u:"https://takara-univ.ac.jp/"},
+"宝塚大学(宝塚キャンパス)":{s:"花屋敷",l:"能勢電鉄妙見線",u:"https://www.takara-univ.ac.jp/"},
+"武庫川女子大学(上甲子園キャンパス)":{s:"甲子園口",l:"JR神戸線",u:"https://www.mukogawa-u.ac.jp/"},
+"武庫川女子大学(中央キャンパス)":{s:"鳴尾・武庫川女子大前",l:"阪神本線",u:"https://www.mukogawa-u.ac.jp/"},
+"武庫川女子大学(浜甲子園キャンパス)":{s:"甲子園",l:"阪神本線",u:"https://www.mukogawa-u.ac.jp/"},
+"流通科学大学(神戸キャンパス)":{s:"学園都市",l:"神戸市営地下鉄西神・山手線",u:"https://www.umds.ac.jp/"},
+"甲南大学(ポートアイランドキャンパス)":{s:"計算科学センター",l:"神戸新交通ポートライナー",u:"https://www.konan-u.ac.jp/"},
+"甲南大学(岡本キャンパス)":{s:"岡本",l:"阪急神戸線",u:"https://www.konan-u.ac.jp/"},
+"甲南大学(西宮キャンパス)":{s:"西宮北口",l:"阪急神戸線",u:"https://www.konan-u.ac.jp/"},
+"甲南女子大学(神戸キャンパス)":{s:"甲南山手",l:"JR神戸線",u:"https://www.konan-wu.ac.jp/"},
+"神戸医療未来大学(神戸キャンパス)":{s:"長田",l:"神戸市営地下鉄西神・山手線",u:"https://www.kobemirai.ac.jp/"},
+"神戸医療福祉大学(中町キャンパス)":{s:"福崎",l:"JR播但線",u:"https://www.kinwu.ac.jp/"},
+"神戸国際大学(六甲アイランドキャンパス)":{s:"アイランドセンター",l:"神戸新交通六甲アイランド線",u:"https://www.kobe-kiu.ac.jp/"},
+"神戸大学(六甲台第1キャンパス)":{s:"六甲",l:"阪急神戸線",u:"https://www.kobe-u.ac.jp/"},
+"神戸大学(六甲台第2キャンパス)":{s:"六甲",l:"阪急神戸線",u:"https://www.kobe-u.ac.jp/"},
+"神戸大学(名谷キャンパス)":{s:"名谷",l:"神戸市営地下鉄西神・山手線",u:"https://www.kobe-u.ac.jp/"},
+"神戸大学(楠キャンパス)":{s:"大倉山",l:"神戸市営地下鉄西神・山手線",u:"https://www.kobe-u.ac.jp/"},
+"神戸大学(深江キャンパス)":{s:"深江",l:"阪神本線",u:"https://www.kobe-u.ac.jp/"},
+"神戸大学(鶴甲第1キャンパス)":{s:"六甲",l:"阪急神戸線",u:"https://www.kobe-u.ac.jp/"},
+"神戸大学(鶴甲第2キャンパス)":{s:"六甲",l:"阪急神戸線",u:"https://www.kobe-u.ac.jp/"},
+"神戸女子大学(ポートアイランドキャンパス)":{s:"みなとじま",l:"神戸新交通ポートライナー",u:"https://www.kobe-wu.ac.jp/"},
+"神戸女子大学(須磨キャンパス)":{s:"板宿",l:"山陽電鉄本線",u:"https://www.kobe-wu.ac.jp/"},
+"神戸女学院大学(西宮キャンパス)":{s:"門戸厄神",l:"阪急今津線",u:"https://www.kobe-c.ac.jp/"},
+"神戸学院大学(ポートアイランドキャンパス)":{s:"みなとじま",l:"神戸新交通ポートライナー",u:"https://www.kobegakuin.ac.jp/"},
+"神戸学院大学(有瀬キャンパス)":{s:"明石",l:"JR山陽本線",u:"https://www.kobegakuin.ac.jp/"},
+"神戸市外国語大学(学園都市キャンパス)":{s:"学園都市",l:"神戸市営地下鉄西神・山手線",u:"https://www.kobe-cufs.ac.jp/"},
+"神戸市看護大学(ポートアイランドキャンパス)":{s:"みなとじま",l:"神戸新交通ポートライナー",u:"https://www.kobe-ccn.ac.jp/"},
+"神戸常盤大学(長田キャンパス)":{s:"長田",l:"神戸市営地下鉄西神・山手線",u:"https://www.kobe-tokiwa.ac.jp/"},
+"神戸松蔭女子学院大学(六甲キャンパス)":{s:"六甲",l:"阪急神戸線",u:"https://www.shoin.ac.jp/"},
+"神戸海星女子学院大学(塩屋キャンパス)":{s:"塩屋",l:"JR山陽本線",u:"https://www.kobe-kaisei.ac.jp/"},
+"神戸芸術工科大学(学園都市キャンパス)":{s:"学園都市",l:"神戸市営地下鉄西神・山手線",u:"https://www.kobe-du.ac.jp/"},
+"神戸薬科大学(本山キャンパス)":{s:"御影",l:"阪急神戸線",u:"https://www.kobepharma-u.ac.jp/"},
+"神戸親和大学(鈴蘭台キャンパス)":{s:"鈴蘭台",l:"神戸電鉄有馬線",u:"https://www.kobe-shinwa.ac.jp/"},
+"芦屋大学(芦屋キャンパス)":{s:"芦屋",l:"JR神戸線",u:"https://www.ashiya-u.ac.jp/"},
+"関西国際大学(三木キャンパス)":{s:"緑が丘",l:"神戸電鉄粟生線",u:"https://www.kuins.ac.jp/"},
+"関西国際大学(尼崎キャンパス)":{s:"尼崎",l:"JR東海道本線",u:"https://www.kuins.ac.jp/"},
+"関西学院大学(神戸三田キャンパス)":{s:"新三田",l:"JR福知山線",u:"https://www.kwansei.ac.jp/"},
+"関西学院大学(西宮上ケ原キャンパス)":{s:"甲東園",l:"阪急今津線",u:"https://www.kwansei.ac.jp/"},
+"関西学院大学(西宮聖和キャンパス)":{s:"門戸厄神",l:"阪急今津線",u:"https://www.kwansei.ac.jp/"},
+"関西看護医療大学(淡路キャンパス)":{s:"舞子",l:"JR山陽本線",u:"https://www.kannei.ac.jp/"},
+"京都ノートルダム女子大学":{s:"北山",l:"京都市営地下鉄烏丸線",u:"https://www.notredame.ac.jp/"},
+"京都先端科学大学(亀岡キャンパス)":{s:"亀岡",l:"JR山陰本線",u:"https://www.kuas.ac.jp/"},
+"京都先端科学大学(太秦キャンパス)":{s:"山ノ内",l:"嵐電嵐山本線",u:"https://www.kuas.ac.jp/"},
+"京都光華女子大学":{s:"西京極",l:"阪急京都線",u:"https://www.koka.ac.jp/"},
+"京都外国語大学":{s:"西院",l:"阪急京都線",u:"https://www.kufs.ac.jp/"},
+"京都大学(北部キャンパス)":{s:"出町柳",l:"京阪本線",u:"https://www.kyoto-u.ac.jp/"},
+"京都大学(吉田キャンパス)":{s:"出町柳",l:"京阪本線",u:"https://www.kyoto-u.ac.jp/"},
+"京都大学(宇治キャンパス)":{s:"黄檗",l:"JR奈良線",u:"https://www.kyoto-u.ac.jp/"},
+"京都大学(桂キャンパス)":{s:"桂",l:"阪急京都線",u:"https://www.kyoto-u.ac.jp/"},
+"京都女子大学(東山キャンパス)":{s:"七条",l:"京阪本線",u:"https://www.kyoto-wu.ac.jp/"},
+"京都工芸繊維大学(嵯峨キャンパス)":{s:"嵯峨嵐山",l:"JR山陰本線",u:"https://www.kit.ac.jp/"},
+"京都工芸繊維大学(松ヶ崎キャンパス)":{s:"松ヶ崎",l:"京都市営地下鉄烏丸線",u:"https://www.kit.ac.jp/"},
+"京都市立芸術大学(京都駅東部キャンパス)":{s:"京都",l:"JR東海道本線",u:"https://www.kcua.ac.jp/"},
+"京都府立医科大学(河原町キャンパス)":{s:"神宮丸太町",l:"京阪本線",u:"https://www.kpu-m.ac.jp/"},
+"京都府立大学(下鴨キャンパス)":{s:"北山",l:"京都市営地下鉄烏丸線",u:"https://www.kpu.ac.jp/"},
+"京都教育大学(藤森キャンパス)":{s:"JR藤森",l:"JR奈良線",u:"https://www.kyokyo-u.ac.jp/"},
+"京都橘大学(山科キャンパス)":{s:"椥辻",l:"京都市営地下鉄東西線",u:"https://www.tachibana-u.ac.jp/"},
+"京都産業大学(神山キャンパス)":{s:"上賀茂神社前バス停",l:"京都市バス",u:"https://www.kyoto-su.ac.jp/"},
+"京都看護大学":{s:"西院",l:"阪急京都線",u:"https://www.kyoto-kango.ac.jp/"},
+"京都精華大学":{s:"京都精華大前",l:"叡山電鉄鞍馬線",u:"https://www.kyoto-seika.ac.jp/"},
+"京都美術工芸大学(京都東山キャンパス)":{s:"七条",l:"京阪本線",u:"https://www.kyobi.ac.jp/"},
+"京都芸術大学(瓜生山キャンパス)":{s:"茶山・京都芸術大学",l:"叡山電鉄叡山本線",u:"https://www.kyoto-art.ac.jp/"},
+"京都華頂大学":{s:"東山",l:"京都市営地下鉄東西線",u:"https://www.kachito.ac.jp/"},
+"京都薬科大学":{s:"御陵",l:"京都市営地下鉄東西線",u:"https://www.kyoto-phu.ac.jp/"},
+"佛教大学(二条キャンパス)":{s:"二条",l:"JR山陰本線",u:"https://www.bukkyo-u.ac.jp/"},
+"佛教大学(紫野キャンパス)":{s:"北大路",l:"京都市営地下鉄烏丸線",u:"https://www.bukkyo-u.ac.jp/"},
+"同志社大学(京田辺キャンパス)":{s:"同志社前",l:"JR学研都市線",u:"https://www.doshisha.ac.jp/"},
+"同志社大学(今出川キャンパス)":{s:"今出川",l:"京都市営地下鉄烏丸線",u:"https://www.doshisha.ac.jp/"},
+"同志社女子大学(京田辺キャンパス)":{s:"同志社前",l:"JR学研都市線",u:"https://www.dwc.doshisha.ac.jp/"},
+"同志社女子大学(今出川キャンパス)":{s:"今出川",l:"京都市営地下鉄烏丸線",u:"https://www.dwc.doshisha.ac.jp/"},
+"大谷大学":{s:"北大路",l:"京都市営地下鉄烏丸線",u:"https://www.otani.ac.jp/"},
+"嵯峨美術大学":{s:"嵯峨嵐山",l:"JR山陰本線",u:"https://www.kyoto-saga.ac.jp/"},
+"平安女学院大学(京都キャンパス)":{s:"丸太町",l:"京都市営地下鉄烏丸線",u:"https://www.heian.ac.jp/"},
+"明治国際医療大学":{s:"日吉",l:"JR山陰本線",u:"https://www.meiji-u.ac.jp/"},
+"福知山公立大学(福知山キャンパス)":{s:"福知山",l:"JR山陰本線",u:"https://www.fukuchiyama.ac.jp/"},
+"種智院大学":{s:"向島",l:"近鉄京都線",u:"https://www.shuchiin.ac.jp/"},
+"立命館大学(朱雀キャンパス)":{s:"二条",l:"JR山陰本線",u:"https://www.ritsumei.ac.jp/"},
+"立命館大学(衣笠キャンパス)":{s:"等持院・立命館大学衣笠キャンパス前",l:"嵐電北野線",u:"https://www.ritsumei.ac.jp/"},
+"花園大学":{s:"花園",l:"JR山陰本線",u:"https://www.hanazono.ac.jp/"},
+"龍谷大学(大宮キャンパス)":{s:"丹波口",l:"JR山陰本線",u:"https://www.ryukoku.ac.jp/"},
+"龍谷大学(深草キャンパス)":{s:"龍谷大前深草",l:"京阪本線",u:"https://www.ryukoku.ac.jp/"},
+"天理大学(別所キャンパス)":{s:"天理",l:"近鉄天理線",u:"https://www.tenri-u.ac.jp/"},
+"天理大学(杣之内キャンパス)":{s:"天理",l:"近鉄天理線",u:"https://www.tenri-u.ac.jp/"},
+"天理大学(田井庄キャンパス)":{s:"天理",l:"近鉄天理線",u:"https://www.tenri-u.ac.jp/"},
+"奈良大学":{s:"高の原",l:"近鉄京都線",u:"https://www.nara-u.ac.jp/"},
+"奈良女子大学":{s:"近鉄奈良",l:"近鉄奈良線",u:"https://www.nara-wu.ac.jp/"},
+"奈良学園大学(登美ヶ丘キャンパス)":{s:"学研奈良登美ヶ丘",l:"近鉄けいはんな線",u:"https://www.naragakuen-u.jp/"},
+"奈良教育大学":{s:"近鉄奈良",l:"近鉄奈良線",u:"https://www.nara-edu.ac.jp/"},
+"奈良県立医科大学(四条キャンパス)":{s:"八木西口",l:"近鉄橿原線",u:"https://www.naramed-u.ac.jp/"},
+"奈良県立大学":{s:"近鉄奈良",l:"近鉄奈良線",u:"https://www.narapu.ac.jp/"},
+"帝塚山大学(学園前キャンパス)":{s:"学園前",l:"近鉄奈良線",u:"https://www.tezukayama-u.ac.jp/"},
+"帝塚山大学(東生駒キャンパス)":{s:"東生駒",l:"近鉄奈良線",u:"https://www.tezukayama-u.ac.jp/"},
+"畿央大学":{s:"五位堂",l:"近鉄大阪線",u:"https://www.kio.ac.jp/"},
+"近畿大学(奈良キャンパス)":{s:"富雄",l:"近鉄奈良線",u:"https://www.kindai.ac.jp/agriculture/"},
+"びわこ成蹊スポーツ大学":{s:"比良",l:"JR湖西線",u:"https://biwako-seikei.jp/"},
+"成安造形大学":{s:"おごと温泉",l:"JR湖西線",u:"https://www.seian.ac.jp/"},
+"滋賀医科大学":{s:"瀬田",l:"JR琵琶湖線",u:"https://www.shiga-med.ac.jp/"},
+"滋賀大学(大津キャンパス)":{s:"石山",l:"JR琵琶湖線",u:"https://www.shiga-u.ac.jp/"},
+"滋賀大学(彦根キャンパス)":{s:"彦根",l:"JR琵琶湖線",u:"https://www.shiga-u.ac.jp/"},
+"滋賀県立大学":{s:"南彦根",l:"JR琵琶湖線",u:"https://www.usp.ac.jp/"},
+"立命館大学(びわこ・くさつキャンパス)":{s:"南草津",l:"JR琵琶湖線",u:"https://www.ritsumei.ac.jp/"},
+"聖泉大学":{s:"稲枝",l:"JR琵琶湖線",u:"https://www.seisen.ac.jp/"},
+"長浜バイオ大学":{s:"田村",l:"JR北陸本線",u:"https://www.nagahama-i-bio.ac.jp/"},
+"龍谷大学(瀬田キャンパス)":{s:"瀬田",l:"JR琵琶湖線",u:"https://www.ryukoku.ac.jp/"},
+"和歌山信愛大学":{s:"和歌山市",l:"南海本線",u:"https://www.wsu.ac.jp/"},
+"和歌山大学":{s:"和歌山大学前",l:"南海本線",u:"https://www.wakayama-u.ac.jp/"},
+"和歌山県立医科大学(三葛キャンパス)":{s:"紀三井寺",l:"JR紀勢本線",u:"https://www.wakayama-med.ac.jp/"},
+"和歌山県立医科大学(伏虎キャンパス)":{s:"和歌山市",l:"南海本線",u:"https://www.wakayama-med.ac.jp/"},
+"和歌山県立医科大学(紀三井寺キャンパス)":{s:"紀三井寺",l:"JR紀勢本線",u:"https://www.wakayama-med.ac.jp/"},
+"宝塚医療大学(和歌山中之島キャンパス)":{s:"和歌山",l:"JR紀勢本線",u:"https://www.tumh.ac.jp/"},
+"東京医療保健大学(雄湊キャンパス)":{s:"和歌山市",l:"南海本線",u:"https://wakayama.thcu.ac.jp/"},
+"近畿大学(和歌山キャンパス)":{s:"紀伊",l:"JR阪和線",u:"https://www.kindai.ac.jp/bost/"},
+"高野山大学":{s:"高野山",l:"南海高野線",u:"https://www.koyasan-u.ac.jp/"}
+};
+
 // ========== Initialize Leaflet Map ==========
 var map = L.map("map", {
   center: [34.75, 135.55],
@@ -1359,7 +1615,8 @@ L.control.layers(
 // ========== Create markers ==========
 var markers = [];
 var markerLayer = L.layerGroup().addTo(map);
-var fs = {p:[true,true,true,true,true,true], t:[true,true], g:[true,true,true], q:"", hiddenCities:{}, alongRail:false};
+var fs = {p:[true,true,true,true,true,true], t:[true,true], g:[true,true,true], q:"", hiddenCities:{}, alongRail:false, kind:[true,true], ut:[true,true]};
+// kind: [showHS, showUniv]; ut: [国公立, 私立] (大学のみに適用)
 
 // Normalize for fuzzy search (lowercase, hiragana→katakana, remove punctuation)
 function normalizeForSearch(s) {
@@ -1441,6 +1698,7 @@ S.forEach(function(s, i) {
 
   markers.push({
     marker: marker,
+    kind: 0, // 0=高校
     p: pref,
     t: type,
     name: name,
@@ -1455,6 +1713,84 @@ S.forEach(function(s, i) {
     idx: i
   });
 });
+
+// ========== Create university markers (◆◇ diamond shape) ==========
+var univMarkers = [];
+U.forEach(function(u, ui) {
+  var name = u[0], ci = u[1], ut = u[2], pref = u[3];
+  var color = PC[pref];
+  var darkColor = PC_DARK[pref];
+  // Spiral offset for same-coord universities (rare but safe)
+  var sameBefore = 0;
+  for (var j = 0; j < ui; j++) if (U[j][1] === U[ui][1]) sameBefore++;
+  var angle = sameBefore * 1.047;
+  var dist = sameBefore === 0 ? 0 : 0.003 * (1 + Math.floor(sameBefore / 6));
+  var lat = GU[ci][0] + dist * Math.sin(angle);
+  var lng = GU[ci][1] + dist * Math.cos(angle);
+
+  // Diamond marker via divIcon (rotated square)
+  var fillC = ut === 0 ? color : "#ffffff";
+  var strokeC = ut === 0 ? darkColor : color;
+  var html =
+    '<div class="univ-diamond" style="background:' + fillC +
+    ';border:2px solid ' + strokeC + ';color:' + darkColor + '"></div>';
+  var icon = L.divIcon({
+    html: html,
+    className: "univ-marker",
+    iconSize: [12, 12],
+    iconAnchor: [6, 6]
+  });
+  var marker = L.marker([lat, lng], { icon: icon });
+
+  marker.bindTooltip(name, {
+    permanent: true,
+    direction: "right",
+    offset: [10, 0],
+    className: "school-label univ-label",
+    interactive: false
+  });
+  marker.on("tooltipopen", function(e) {
+    if (e.tooltip && e.tooltip._container) {
+      e.tooltip._container.style.color = darkColor;
+    }
+  });
+
+  // Hover popup
+  var hoverContent = "<b>" + name + "</b><br>" + PN[pref] + " | " + (ut === 0 ? "国公立大学" : "私立大学");
+  var acc = UACC[name];
+  if (acc) {
+    if (acc.s) hoverContent += "<br><small>最寄: " + acc.s + "</small>";
+    if (acc.l) hoverContent += "<br><small>" + acc.l + "</small>";
+  }
+  marker.bindPopup(hoverContent, {
+    closeButton: false,
+    offset: [0, -6],
+    className: "school-popup"
+  });
+
+  marker.on("mouseover", function(){ this.openPopup(); });
+  marker.on("mouseout", function(){ this.closePopup(); });
+  marker.addTo(markerLayer);
+
+  univMarkers.push({
+    marker: marker,
+    kind: 1, // 1=大学
+    p: pref,
+    ut: ut,
+    name: name,
+    nameNorm: normalizeForSearch(name),
+    city: UCITY[ui] || "",
+    cityKey: pref + "|" + (UCITY[ui] || ""),
+    pn: PN[pref],
+    tn: ut === 0 ? "国公立" : "私立",
+    ci: ci,
+    lat: lat,
+    lng: lng,
+    idx: ui
+  });
+});
+// Merge into markers so existing iteration code can include universities
+univMarkers.forEach(function(um){ markers.push(um); });
 
 // ========== Label visibility by zoom ==========
 var mapEl = document.getElementById("map");
@@ -1495,7 +1831,18 @@ function isAlongRail(m) {
 }
 
 function isVisible(m) {
-  return fs.p[m.p] && fs.t[m.t] && fs.g[GENDER[m.idx]] && matchesCity(m) && matchesQuery(m) && isAlongRail(m);
+  // 高校/大学 表示切替
+  if (m.kind === 1) {
+    // 大学
+    if (!fs.kind[1]) return false;
+    if (!fs.ut[m.ut]) return false;
+  } else {
+    // 高校
+    if (!fs.kind[0]) return false;
+    if (!fs.t[m.t]) return false;
+    if (!fs.g[GENDER[m.idx]]) return false;
+  }
+  return fs.p[m.p] && matchesCity(m) && matchesQuery(m) && isAlongRail(m);
 }
 
 // 行政区域 GeoJSON (府県境＋市区町村境)
@@ -1883,6 +2230,18 @@ document.querySelectorAll("[data-g]").forEach(function(cb) {
     upd();
   });
 });
+document.querySelectorAll("[data-kind]").forEach(function(cb) {
+  cb.addEventListener("change", function(e) {
+    fs.kind[parseInt(e.target.dataset.kind)] = e.target.checked;
+    upd();
+  });
+});
+document.querySelectorAll("[data-ut]").forEach(function(cb) {
+  cb.addEventListener("change", function(e) {
+    fs.ut[parseInt(e.target.dataset.ut)] = e.target.checked;
+    upd();
+  });
+});
 
 document.getElementById("cityFilterBtn").addEventListener("click", openCityModal);
 document.getElementById("cityModalClose").addEventListener("click", closeCityModal);
@@ -1982,27 +2341,44 @@ function buildSchoolList() {
       var item = document.createElement("div");
       item.className = "school-item";
       item.dataset.idx = m.idx;
-      var typeSymbol = m.t === 0 ? "&#9679;" : "&#9675;";
+      var isUniv = m.kind === 1;
+      var typeSymbol;
+      if (isUniv) {
+        typeSymbol = m.ut === 0 ? "&#9670;" : "&#9671;"; // ◆ 国公立 / ◇ 私立
+      } else {
+        typeSymbol = m.t === 0 ? "&#9679;" : "&#9675;"; // ● 公立 / ○ 私立
+      }
       item.innerHTML = '<span class="type-dot" style="color:' + PC[m.p] + '">' + typeSymbol + '</span> ' + m.name;
 
       item.addEventListener("click", function() {
         map.flyTo([m.lat, m.lng], 14, {duration: 1});
-        openPanel(m.idx);
+        if (!isUniv) openPanel(m.idx);
+        else m.marker.openPopup();
       });
 
-      item.addEventListener("mouseenter", function() {
-        m.marker.setStyle({radius: 9, weight: 3, fillOpacity: 1});
-        item.classList.add("highlighted");
-      });
-
-      item.addEventListener("mouseleave", function() {
-        m.marker.setStyle({
-          radius: 5,
-          weight: 2,
-          fillOpacity: m.t === 0 ? 0.95 : 1
+      if (!isUniv) {
+        item.addEventListener("mouseenter", function() {
+          m.marker.setStyle({radius: 9, weight: 3, fillOpacity: 1});
+          item.classList.add("highlighted");
         });
-        item.classList.remove("highlighted");
-      });
+        item.addEventListener("mouseleave", function() {
+          m.marker.setStyle({
+            radius: 5,
+            weight: 2,
+            fillOpacity: m.t === 0 ? 0.95 : 1
+          });
+          item.classList.remove("highlighted");
+        });
+      } else {
+        item.addEventListener("mouseenter", function() {
+          item.classList.add("highlighted");
+          m.marker.openPopup();
+        });
+        item.addEventListener("mouseleave", function() {
+          item.classList.remove("highlighted");
+          m.marker.closePopup();
+        });
+      }
 
       body.appendChild(item);
     });
