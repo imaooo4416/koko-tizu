@@ -432,8 +432,18 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
   #sidebar-header .count{font-size:11px;margin-top:1px}
   #filters{padding:8px 16px 24px}
   .filter-group{margin-bottom:10px}
-  /* Modal/panel sizing on phones */
-  #panel{width:100vw;right:-100vw}
+  /* スマホ詳細パネル: transform 方式で右からスライド (right/bottom の干渉を避ける) */
+  #panel{
+    width:100vw;max-width:100vw;height:100vh;height:100dvh;
+    top:0;left:0;right:auto;bottom:auto;
+    transform:translateX(100%);
+    transition:transform .42s cubic-bezier(.32,.72,.21,1);
+    z-index:1400;
+  }
+  #panel.open{transform:translateX(0);bottom:auto}
+  /* mode-full も同じ挙動(スマホでは差を作らない) */
+  #panel.mode-full{transform:translateX(100%);top:0;bottom:auto;height:100vh;height:100dvh}
+  #panel.mode-full.open{transform:translateX(0)}
   #footer-bar{display:none}
   .city-modal-overlay{padding:10px}
   .city-modal{max-height:calc(100vh - 20px)}
@@ -3131,14 +3141,16 @@ function openPanel(arg, opts) {
   // 地図をその学校にフォーカス（panel展開で右領域が狭くなるが、ぼかしはしない）
   map.flyTo([m.lat, m.lng], Math.max(map.getZoom(), 14), { duration: 0.8 });
 
-  if (fromMap) {
-    // 地図直クリック: 右からスライドインのフルハイトモード。ドロワーは閉じる
+  // スマホでは学校一覧からの遷移でも全画面詳細を出す(compactだと小さくて読みづらいため)
+  var forceFull = fromMap || window.matchMedia("(max-width: 767px)").matches;
+  if (forceFull) {
+    // フルハイトモード: 地図直クリックは右からスライドイン、スマホ一覧クリックも同様
     panel.classList.add("mode-full");
     if (typeof closeListDrawer === "function" && listDrawer.classList.contains("open")) {
       closeListDrawer();
     }
   } else {
-    // 学校一覧クリック: 既定の compact モード (67vh、ドロワー下からスライドアップ)
+    // PC で学校一覧クリック: compact モード (67vh、ドロワー下からスライドアップ)
     panel.classList.remove("mode-full");
     if (typeof openListDrawer === "function") openListDrawer();
   }
