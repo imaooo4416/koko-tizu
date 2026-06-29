@@ -1528,28 +1528,48 @@ function detectSelectionContext() {
   for (var i = 0; i < 6; i++) if (fs.p[i]) activePrefs.push(i);
   if (activePrefs.length === 0) return null;
 
-  // city モード判定: アクティブな府県のいずれかで市区町村が部分表示
-  // 単一府県/複数府県どちらでも、絞り込みがあれば「visibleな市区町村のみ」を切り取り
   var stats = (typeof getActiveCityStats === "function") ? getActiveCityStats() : [];
   var cityFilterActive = false;
-  var cityFeats = [];
+  var totalCities = 0, totalHidden = 0;
+  var visibleFeats = [];
+  var hiddenFeats = [];
   activePrefs.forEach(function(p){
     var prefCities = stats.filter(function(s){ return s.pref === p; });
     var visibleCities = prefCities.filter(function(s){ return !fs.hiddenCities[s.key]; });
-    // この府県で部分絞り込みあり?
-    if (prefCities.length > 1 && visibleCities.length < prefCities.length) {
+    var hiddenCities = prefCities.filter(function(s){ return !!fs.hiddenCities[s.key]; });
+    if (prefCities.length > 1 && hiddenCities.length > 0) {
       cityFilterActive = true;
+      totalCities += prefCities.length;
+      totalHidden += hiddenCities.length;
     }
-    // 表示中の市区町村features を全部集める
     visibleCities.forEach(function(s){
       var feat = ADMIN_CITY.features.find(function(f){
         return f.properties.N03_001 === PN[p] && f.properties.N03_004 === s.city;
       });
-      if (feat) cityFeats.push(feat);
+      if (feat) visibleFeats.push(feat);
+    });
+    hiddenCities.forEach(function(s){
+      var feat = ADMIN_CITY.features.find(function(f){
+        return f.properties.N03_001 === PN[p] && f.properties.N03_004 === s.city;
+      });
+      if (feat) hiddenFeats.push(feat);
     });
   });
-  if (cityFilterActive && cityFeats.length) {
-    return { type: "city", features: cityFeats, prefIdxs: activePrefs };
+
+  if (cityFilterActive) {
+    // 除外比率が25%未満 → 府県全体ハイライト + 除外市区町村だけ「穴」として暗く
+    var hiddenRatio = totalCities > 0 ? totalHidden / totalCities : 0;
+    if (hiddenRatio < 0.25 && hiddenFeats.length > 0) {
+      var prefFeats = activePrefs.map(function(p){
+        return ADMIN_PREF.features.find(function(f){ return f.properties.N03_001 === PN[p]; });
+      }).filter(Boolean);
+      if (prefFeats.length) {
+        return { type: "pref-with-holes", features: prefFeats, holes: hiddenFeats, prefIdxs: activePrefs };
+      }
+    }
+    if (visibleFeats.length) {
+      return { type: "city", features: visibleFeats, prefIdxs: activePrefs };
+    }
   }
 
   // pref モード: アクティブな府県すべて
@@ -1609,8 +1629,13 @@ function drawAdminClip(ctx) {
   clearAdminClip();
   if (!ctx || !ctx.features || !ctx.features.length) return;
   var holes = featuresToHoles(ctx.features);
+  // pref-with-holes モード: 除外市区町村を「穴の中の穴」として追加
+  // evenodd fill ruleで偶数回ネストすると塗りつぶされる→マスク色に戻る
+  if (ctx.holes && ctx.holes.length) {
+    holes = holes.concat(featuresToHoles(ctx.holes));
+  }
   if (!holes.length) return;
-  // 反転マスク: 世界全体 − 選択ポリゴン群(穴として)
+  // 反転マスク: 世界全体 − 選択ポリゴン群(穴として) + 除外市区町村(穴の穴)
   adminMaskLayer = L.polygon([WORLD_RING].concat(holes), {
     pane: "adminMaskPane",
     color: "#1a2540", fillColor: "#1a2540",
