@@ -2707,7 +2707,14 @@ function railLoop() {
   var GLOW_R = 11;
   var CORE_R = 1.8;
   var SPEED_M = 130;     // 1frameあたりの進行距離 [m]
-  var N_PULSES = 4;       // 1路線あたりの粒子数
+  var N_PULSES = 0;       // 1路線あたりの粒子数 (0で完全無効化、線路の発光のみ)
+
+  // N_PULSES=0なら粒子描画自体をスキップしてループ終了
+  if (N_PULSES <= 0) {
+    railFlowCtx.clearRect(0, 0, railFlowCanvas.width, railFlowCanvas.height);
+    railFlowRunning = false;
+    return;
+  }
 
   lines.forEach(function(line){
     var key = line.op + "|" + line.line;
