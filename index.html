@@ -2653,7 +2653,8 @@ function updateRailLayers() {
       var line = L.polyline(combined, {
         color: col, weight: 6, opacity: 1.0,
         lineCap: "round", lineJoin: "round",
-        dashArray: "0 54",
+        dashArray: "0 22",
+        smoothFactor: 0,   // 重要: Leafletの間引きを無効化(dashArrayが正しく適用される)
         className: "rail-highlight-line"
       }).addTo(map);
       if (line._path) line._path.style.color = col;
