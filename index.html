@@ -269,9 +269,22 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 .acc-link.gmap:hover{border-color:var(--mint);background:#fff}
 
 /* 通学圏ボタン (詳細パネル内) */
-.commute-launcher{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.commute-launcher{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;position:relative}
 .commute-btn{flex:1;min-width:90px;padding:9px 12px;border:1.5px solid #5BA4E6;background:#fff;color:#2D6FB8;border-radius:var(--r-pill);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .18s var(--ease);display:flex;align-items:center;justify-content:center;gap:4px}
-.commute-btn:hover{background:#5BA4E6;color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(91,164,230,.3)}
+.commute-btn:hover:not(:disabled){background:#5BA4E6;color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(91,164,230,.3)}
+.commute-btn:disabled{opacity:.55;cursor:wait;border-color:var(--border)}
+.commute-btn.is-loading{background:linear-gradient(90deg,#f0f5fb 0%,#e0ecf9 50%,#f0f5fb 100%);background-size:200% 100%;animation:commuteShimmer 1.4s infinite linear;color:var(--ink-soft)}
+@keyframes commuteShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* 通学圏ヘルプアイコン + ツールチップ */
+.commute-help{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--surface-2);color:var(--ink-soft);font-size:13px;font-weight:700;cursor:help;border:1.5px solid var(--border);transition:all .15s var(--ease);position:relative;flex-shrink:0;font-family:serif;padding:0;line-height:1}
+.commute-help-icon{display:block;line-height:1}
+.commute-help:hover,.commute-help:focus{background:#5BA4E6;color:#fff;border-color:#5BA4E6}
+.commute-tip-content{position:absolute;bottom:calc(100% + 10px);right:0;width:280px;max-width:calc(100vw - 40px);padding:10px 12px;background:var(--ink);color:#fff;border-radius:8px;font-size:11.5px;line-height:1.55;font-weight:500;box-shadow:0 6px 22px rgba(0,0,0,.25);opacity:0;visibility:hidden;transform:translateY(4px);transition:opacity .18s var(--ease),transform .18s var(--ease),visibility 0s linear .18s;z-index:50;pointer-events:none;font-style:normal;text-align:left}
+.commute-tip-content::after{content:"";position:absolute;top:100%;right:8px;border:6px solid transparent;border-top-color:var(--ink)}
+.commute-tip-content b{color:#FFD7C4}
+.commute-tip-content i{color:#ccc;font-size:10.5px}
+.commute-help:hover .commute-tip-content,.commute-help:focus .commute-tip-content,.commute-help.is-open .commute-tip-content{opacity:1;visibility:visible;transform:translateY(0);transition:opacity .18s var(--ease),transform .18s var(--ease),visibility 0s linear 0s}
 
 /* 通学圏クリアボタン (地図上の浮きボタン) */
 #commuteClearBtn{position:absolute;bottom:46px;right:18px;z-index:600;padding:10px 16px;border:none;border-radius:var(--r-pill);background:rgba(255,255,255,.95);color:var(--ink);font-size:12.5px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:none;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);transition:all .18s var(--ease);border:1.5px solid var(--border)}
@@ -2870,11 +2883,31 @@ function openPanel(arg) {
   var gmapQuery = encodeURIComponent(displayName);
   var gmapUrl = "https://www.google.com/maps/search/?api=1&query=" + gmapQuery + "&query_place_id=&center=" + m.lat + "," + m.lng;
   var gmapLink = '<a class="acc-link gmap" href="' + gmapUrl + '" target="_blank" rel="noopener">📍 Google Mapで表示</a>';
-  // 通学圏ボタン (起点=この学校)
+  // 通学圏ボタン (起点=この学校) + ヘルプアイコン
+  var ready = !!railGraph;
+  var disAttr = ready ? '' : ' disabled';
+  var loadingCls = ready ? '' : ' is-loading';
+  var tooltipHtml =
+    '<div class="commute-tip-content">' +
+      '<b>通学圏の計算方法</b><br>' +
+      '鉄道網をグラフ化しDijkstra法で最短時間を算出。<br>' +
+      '<b>駅間</b>=営業距離÷平均速度+停車30秒<br>' +
+      '（JR新快速55/私鉄急行42/地下鉄32/路面22 km/h）<br>' +
+      '<b>乗換</b>:400m以内の異路線駅で+2分<br>' +
+      '<b>徒歩</b>:80m/分、1回最大1.5km(15分)<br>' +
+      '<i>※実ダイヤではなく簡易推定。待ち時間・本数は未考慮。</i>' +
+    '</div>';
+  var helpBtn =
+    '<button type="button" class="commute-help" aria-label="通学圏の計算方法">' +
+      '<span class="commute-help-icon">ⓘ</span>' +
+      tooltipHtml +
+    '</button>';
+  var label30 = ready ? "🚶 30分通学圏" : "🚶 駅データ読込中…";
   var commuteBtn = '<div class="commute-launcher">' +
-    '<button type="button" class="commute-btn" data-budget="30">🚶 30分通学圏</button>' +
-    '<button type="button" class="commute-btn" data-budget="45">🚉 45分</button>' +
-    '<button type="button" class="commute-btn" data-budget="60">🚆 60分</button>' +
+    '<button type="button" class="commute-btn' + loadingCls + '" data-budget="30"' + disAttr + '>' + label30 + '</button>' +
+    '<button type="button" class="commute-btn" data-budget="45"' + disAttr + '>🚉 45分</button>' +
+    '<button type="button" class="commute-btn" data-budget="60"' + disAttr + '>🚆 60分</button>' +
+    helpBtn +
     '</div>';
 
   if (acc) {
@@ -2900,6 +2933,18 @@ function openPanel(arg) {
       showCommuteAreaForSchool(m, min);
     });
   });
+  // ヘルプアイコン: hover/focus に加えてクリックでもトグル (タッチデバイス対応)
+  var helpEl = accBody.querySelector(".commute-help");
+  if (helpEl) {
+    helpEl.addEventListener("click", function(e){
+      e.preventDefault();
+      helpEl.classList.toggle("is-open");
+    });
+    // 外部クリックで閉じる
+    document.addEventListener("click", function(e){
+      if (!helpEl.contains(e.target)) helpEl.classList.remove("is-open");
+    });
+  }
 
   // 沿線情報セクション
   var lines = findNearbyLines(m.lat, m.lng);
@@ -3134,8 +3179,8 @@ fetch("rail_stations.json").then(function(r){return r.json();}).then(function(d)
   });
   RAIL_STATIONS = d;
   if (fs.alongRail) refreshAlongRail();
-  // 通学圏マップ用に駅グラフを構築
-  buildRailGraph();
+  // 通学圏マップ用に事前ビルド済み駅グラフを読み込み (失敗時はランタイムビルドにfallback)
+  loadOrBuildRailGraph();
 });
 
 // ========== 通学圏マップ (Commuting Area / Isochrone) ==========
@@ -3167,6 +3212,47 @@ function railSpeedKmh(op, line) {
   if (op.indexOf("市") >= 0 || op === "大阪市高速電気軌道" || op === "神戸新交通") return 32; // 地下鉄/新交通
   if (op === "京福電気鉄道" || op === "阪堺電気軌道") return 22; // 路面電車
   return 35;
+}
+
+// 事前ビルド済みグラフJSONを読み込む。失敗時はランタイムビルドにfallback
+function loadOrBuildRailGraph() {
+  fetch("rail_graph.json").then(function(r){
+    if (!r.ok) throw new Error("not ok");
+    return r.json();
+  }).then(function(graphData){
+    // 整合性チェック: 配列長が駅数と一致するか
+    if (!Array.isArray(graphData) || graphData.length !== RAIL_STATIONS.length) {
+      console.warn("[railGraph] graph.json length mismatch (" + graphData.length + " vs " + RAIL_STATIONS.length + "), falling back to runtime build");
+      buildRailGraph();
+      onRailGraphReady();
+      return;
+    }
+    railGraph = new Map();
+    graphStations = RAIL_STATIONS;
+    for (var i = 0; i < graphData.length; i++) {
+      var flat = graphData[i];
+      var nbrs = [];
+      for (var k = 0; k < flat.length; k += 2) {
+        nbrs.push({id: flat[k], w: flat[k+1]});
+      }
+      railGraph.set(i, nbrs);
+    }
+    var edgeCount = graphData.reduce(function(s, a){return s + a.length/2;}, 0);
+    console.log("[railGraph] loaded from prebuilt JSON: " + RAIL_STATIONS.length + " nodes, " + edgeCount + " edges");
+    onRailGraphReady();
+  }).catch(function(){
+    console.warn("[railGraph] prebuilt JSON unavailable, building at runtime");
+    buildRailGraph();
+    onRailGraphReady();
+  });
+}
+
+// 通学圏ボタンを有効化 (グラフ準備完了時)
+function onRailGraphReady() {
+  document.querySelectorAll(".commute-btn").forEach(function(btn){
+    btn.disabled = false;
+    btn.classList.remove("is-loading");
+  });
 }
 
 function buildRailGraph() {
@@ -3324,7 +3410,7 @@ function clearCommuteLayer() {
 function renderCommuteArea(lat, lng, budgetMin) {
   clearCommuteLayer();
   if (!railGraph) {
-    alert("駅データを読み込み中です。数秒後に再試行してください。");
+    // ボタンが無効化されているはずだが念のため
     return;
   }
   var t0 = performance.now();
