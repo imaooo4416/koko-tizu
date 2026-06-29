@@ -6,6 +6,8 @@
 <title>関西6府県 高校・大学 所在地マップ</title>
 <meta name="description" content="大阪府・兵庫県・京都府・奈良県・滋賀県・和歌山県の高校・大学の所在地を地図上にプロットしたインタラクティブマップ。">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 /* ===== Soft Pop Design System ===== */
@@ -125,6 +127,17 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 /* Map */
 #map-wrap{flex:1;position:relative;display:flex;flex-direction:column}
 #map{width:100%;flex:1;min-height:0;background:#F5EFE8}
+
+/* マーカークラスタ: アプリ全体のデザインに合わせたソフトな丸バブル */
+.school-cluster{background:transparent!important;border:0!important}
+.cluster-bubble{width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-family:'Noto Sans JP',sans-serif;letter-spacing:.5px;box-shadow:0 4px 14px rgba(0,0,0,.2),inset 0 0 0 4px rgba(255,255,255,.35);transition:transform .15s var(--ease)}
+.cluster-bubble:hover{transform:scale(1.08)}
+.cluster-bubble span{font-size:14px;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.cluster-sm{background:linear-gradient(135deg,#5BA4E6,#3D8AC7)}
+.cluster-md{background:linear-gradient(135deg,#6FC9A7,#4FAB89)}
+.cluster-lg{background:linear-gradient(135deg,#F4A66E,#E08850)}
+.cluster-xl{background:linear-gradient(135deg,#F08585,#D86060)}
+.cluster-lg span,.cluster-xl span{font-size:15px}
 
 /* Leaflet marker drop shadow */
 .leaflet-overlay-pane svg path{filter:drop-shadow(0 1.5px 2.5px rgba(61,46,46,.30))}
@@ -515,6 +528,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 <div id="print-area"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
 (function(){
 "use strict";
@@ -1674,7 +1688,25 @@ L.control.layers(
 
 // ========== Create markers ==========
 var markers = [];
-var markerLayer = L.layerGroup().addTo(map);
+// クラスタリング: 密集したマーカーを数字バブルに集約 (ズームで分解)
+var markerLayer = L.markerClusterGroup({
+  maxClusterRadius: 55,         // ピクセル: この半径内のマーカーをクラスタ化
+  disableClusteringAtZoom: 14,  // この拡大率以上では個別表示
+  spiderfyOnMaxZoom: true,      // 最大拡大時に重なりを蜘蛛状に展開
+  showCoverageOnHover: false,   // クラスタにマウスオーバー時の囲み枠を非表示
+  zoomToBoundsOnClick: true,    // クラスタクリックで自動ズーム
+  chunkedLoading: true,         // 大量マーカーを段階的に追加 (描画ブロック軽減)
+  iconCreateFunction: function(cluster){
+    var count = cluster.getChildCount();
+    var size = count < 10 ? 36 : count < 50 ? 44 : count < 200 ? 52 : 60;
+    var cls = count < 10 ? "cluster-sm" : count < 50 ? "cluster-md" : count < 200 ? "cluster-lg" : "cluster-xl";
+    return L.divIcon({
+      html: '<div class="cluster-bubble ' + cls + '"><span>' + count + '</span></div>',
+      className: "school-cluster",
+      iconSize: [size, size]
+    });
+  }
+}).addTo(map);
 var fs = {p:[true,true,true,true,true,true], t:[true,true], g:[true,true,true], q:"", hiddenCities:{}, alongRail:false, kind:[true,true], ut:[true,true]};
 // kind: [showHS, showUniv]; ut: [国公立, 私立] (大学のみに適用)
 
