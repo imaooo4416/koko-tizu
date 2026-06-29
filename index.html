@@ -105,6 +105,9 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 /* Leaflet marker drop shadow */
 .leaflet-overlay-pane svg path{filter:drop-shadow(0 1.5px 2.5px rgba(61,46,46,.30))}
 
+/* 選択中の鉄道路線: 軽量グロー (CSS filter) */
+.rail-highlight-line{filter:drop-shadow(0 0 3px currentColor) drop-shadow(0 0 6px currentColor)}
+
 /* 行政区域マスク: 出現フェード */
 .admin-mask-poly{animation:adminMaskFade .55s var(--ease) both}
 @keyframes adminMaskFade{from{opacity:0}to{opacity:1}}
@@ -2629,12 +2632,14 @@ function updateRailLayers() {
     });
     // 地理的に連続するよう連結ソート (端→端の流れを実現)
     var chained = chainSegments(rawSegs);
-    // ハイライト描画: 外グロー / 中グロー / 本体線 の3層で「より目立つ発光」
+    // ハイライト描画: 単層で軽量化。CSSフィルタで擬似グロー風に
     chained.forEach(function(latlngs){
-      var outerGlow = L.polyline(latlngs, { color: col, weight: 15, opacity: 0.14, lineCap: "round", lineJoin: "round" }).addTo(map);
-      var innerGlow = L.polyline(latlngs, { color: col, weight: 9,  opacity: 0.32, lineCap: "round", lineJoin: "round" }).addTo(map);
-      var line      = L.polyline(latlngs, { color: col, weight: 4,  opacity: 1.0,  lineCap: "round", lineJoin: "round" }).addTo(map);
-      railPolylines.push(outerGlow, innerGlow, line);
+      var line = L.polyline(latlngs, {
+        color: col, weight: 4, opacity: 0.95,
+        lineCap: "round", lineJoin: "round",
+        className: "rail-highlight-line"
+      }).addTo(map);
+      railPolylines.push(line);
       selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
     });
     if (chained.length) selectedLines.push({ op: l.op, line: l.line, color: col, segs: chained });
@@ -2700,7 +2705,7 @@ function railLoop() {
   var GLOW_R = 11;
   var CORE_R = 1.8;
   var SPEED_M = 130;     // 1frameあたりの進行距離 [m]
-  var N_PULSES = 4;       // 1路線あたりの粒子数
+  var N_PULSES = 2;       // 1路線あたりの粒子数
 
   lines.forEach(function(line){
     var key = line.op + "|" + line.line;
