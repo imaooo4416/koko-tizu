@@ -268,8 +268,12 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 .acc-link.gmap{color:#0F8C58;background:var(--mint-soft)}
 .acc-link.gmap:hover{border-color:var(--mint);background:#fff}
 
+/* 通学圏セクションタイトル (アクセス情報と同形式 + ヘルプアイコン) */
+.commute-sec-title{display:flex;align-items:center;gap:8px}
+.commute-sec-title .commute-help{margin-left:auto}
+
 /* 通学圏ボタン (詳細パネル内) */
-.commute-launcher{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;position:relative}
+.commute-launcher{display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:relative}
 .commute-btn{flex:1;min-width:90px;padding:9px 12px;border:1.5px solid #5BA4E6;background:#fff;color:#2D6FB8;border-radius:var(--r-pill);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .18s var(--ease);display:flex;align-items:center;justify-content:center;gap:4px}
 .commute-btn:hover:not(:disabled){background:#5BA4E6;color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(91,164,230,.3)}
 .commute-btn:disabled{opacity:.55;cursor:wait;border-color:var(--border)}
@@ -509,6 +513,24 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
   <div class="ps" id="accSec">
     <h3>アクセス情報</h3>
     <div id="accBody"></div>
+  </div>
+  <div class="ps" id="commuteSec" style="display:none">
+    <h3 class="commute-sec-title">
+      <span>通学圏概算</span>
+      <button type="button" class="commute-help" aria-label="通学圏の計算方法">
+        <span class="commute-help-icon">ⓘ</span>
+        <span class="commute-tip-content">
+          <b>通学圏の計算方法</b><br>
+          鉄道網をグラフ化しDijkstra法で最短時間を算出。<br>
+          <b>駅間</b>=営業距離÷平均速度+停車30秒<br>
+          （JR新快速55/私鉄急行42/地下鉄32/路面22 km/h）<br>
+          <b>乗換</b>:400m以内の異路線駅で+2分<br>
+          <b>徒歩</b>:80m/分、1回最大1.5km(15分)<br>
+          <i>※実ダイヤではなく簡易推定。待ち時間・本数は未考慮。</i>
+        </span>
+      </button>
+    </h3>
+    <div id="commuteBody"></div>
   </div>
   <div class="ps" id="alongSec" style="display:none">
     <h3>🚉 沿線情報 (最寄駅から1.2km以内)</h3>
@@ -2883,31 +2905,15 @@ function openPanel(arg) {
   var gmapQuery = encodeURIComponent(displayName);
   var gmapUrl = "https://www.google.com/maps/search/?api=1&query=" + gmapQuery + "&query_place_id=&center=" + m.lat + "," + m.lng;
   var gmapLink = '<a class="acc-link gmap" href="' + gmapUrl + '" target="_blank" rel="noopener">📍 Google Mapで表示</a>';
-  // 通学圏ボタン (起点=この学校) + ヘルプアイコン
+  // 通学圏セクション: 30/45/60分の3ボタンを「通学圏概算」セクションに別途配置
   var ready = !!railGraph;
   var disAttr = ready ? '' : ' disabled';
   var loadingCls = ready ? '' : ' is-loading';
-  var tooltipHtml =
-    '<div class="commute-tip-content">' +
-      '<b>通学圏の計算方法</b><br>' +
-      '鉄道網をグラフ化しDijkstra法で最短時間を算出。<br>' +
-      '<b>駅間</b>=営業距離÷平均速度+停車30秒<br>' +
-      '（JR新快速55/私鉄急行42/地下鉄32/路面22 km/h）<br>' +
-      '<b>乗換</b>:400m以内の異路線駅で+2分<br>' +
-      '<b>徒歩</b>:80m/分、1回最大1.5km(15分)<br>' +
-      '<i>※実ダイヤではなく簡易推定。待ち時間・本数は未考慮。</i>' +
-    '</div>';
-  var helpBtn =
-    '<button type="button" class="commute-help" aria-label="通学圏の計算方法">' +
-      '<span class="commute-help-icon">ⓘ</span>' +
-      tooltipHtml +
-    '</button>';
-  var label30 = ready ? "🚶 30分通学圏" : "🚶 駅データ読込中…";
-  var commuteBtn = '<div class="commute-launcher">' +
+  var label30 = ready ? "30分" : "読込中…";
+  var commuteHtml = '<div class="commute-launcher">' +
     '<button type="button" class="commute-btn' + loadingCls + '" data-budget="30"' + disAttr + '>' + label30 + '</button>' +
-    '<button type="button" class="commute-btn" data-budget="45"' + disAttr + '>🚉 45分</button>' +
-    '<button type="button" class="commute-btn" data-budget="60"' + disAttr + '>🚆 60分</button>' +
-    helpBtn +
+    '<button type="button" class="commute-btn" data-budget="45"' + disAttr + '>45分</button>' +
+    '<button type="button" class="commute-btn" data-budget="60"' + disAttr + '>60分</button>' +
     '</div>';
 
   if (acc) {
@@ -2919,32 +2925,24 @@ function openPanel(arg) {
     var links = '<div class="acc-links">';
     if (acc.u) links += '<a class="acc-link" href="' + acc.u + '" target="_blank" rel="noopener">公式サイト</a>';
     links += gmapLink + '</div>';
-    html += links + '</div>' + commuteBtn;
+    html += links + '</div>';
     accBody.innerHTML = html;
     document.getElementById("accSec").style.display = "";
   } else {
-    accBody.innerHTML = '<div class="acc-item">' + gmapLink + '</div>' + commuteBtn;
+    accBody.innerHTML = '<div class="acc-item">' + gmapLink + '</div>';
     document.getElementById("accSec").style.display = "";
   }
-  // 通学圏ボタンにハンドラ
-  accBody.querySelectorAll(".commute-btn").forEach(function(btn){
+
+  // 通学圏セクションを populate + 表示
+  var commuteBody = document.getElementById("commuteBody");
+  commuteBody.innerHTML = commuteHtml;
+  document.getElementById("commuteSec").style.display = "";
+  commuteBody.querySelectorAll(".commute-btn").forEach(function(btn){
     btn.addEventListener("click", function(){
       var min = parseInt(btn.dataset.budget, 10);
       showCommuteAreaForSchool(m, min);
     });
   });
-  // ヘルプアイコン: hover/focus に加えてクリックでもトグル (タッチデバイス対応)
-  var helpEl = accBody.querySelector(".commute-help");
-  if (helpEl) {
-    helpEl.addEventListener("click", function(e){
-      e.preventDefault();
-      helpEl.classList.toggle("is-open");
-    });
-    // 外部クリックで閉じる
-    document.addEventListener("click", function(e){
-      if (!helpEl.contains(e.target)) helpEl.classList.remove("is-open");
-    });
-  }
 
   // 沿線情報セクション
   var lines = findNearbyLines(m.lat, m.lng);
@@ -3441,10 +3439,21 @@ function renderCommuteArea(lat, lng, budgetMin) {
   map.fitBounds(commuteLayer.getBounds(), {padding: [40, 40], maxZoom: 13});
 }
 
-// クリアボタンの初期化
+// クリアボタンの初期化 + ヘルプアイコンのクリック開閉 (1回のみ)
 (function(){
   var btn = document.getElementById("commuteClearBtn");
   if (btn) btn.addEventListener("click", clearCommuteLayer);
+  var help = document.querySelector(".commute-sec-title .commute-help");
+  if (help) {
+    help.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      help.classList.toggle("is-open");
+    });
+    document.addEventListener("click", function(e){
+      if (!help.contains(e.target)) help.classList.remove("is-open");
+    });
+  }
 })();
 
 // 詳細パネルから呼び出すボタン用 (m: marker entry)
