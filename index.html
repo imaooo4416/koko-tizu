@@ -70,6 +70,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 
 /* Search box */
 #search-wrap{position:relative;margin-bottom:10px}
+#listDrawer #search-wrap{margin:10px 14px 4px}
 #searchInput{width:100%;padding:11px 34px 11px 34px;border:1.5px solid var(--border);border-radius:var(--r-pill);font-size:13px;outline:none;font-family:'Noto Sans JP',sans-serif;background:var(--surface-2);transition:all .2s var(--ease);font-weight:500;color:var(--ink)}
 #searchInput::placeholder{color:var(--ink-faint)}
 #searchInput:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 4px var(--accent-soft)}
@@ -366,10 +367,6 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
       <button id="pdfBtn" type="button">&#x1F5A8; 表示中の一覧をPDF保存</button>
     </div>
     <div id="filters">
-      <div id="search-wrap">
-        <input id="searchInput" type="text" placeholder="学校名で検索..." autocomplete="off">
-        <button id="searchClear" type="button" aria-label="クリア">&times;</button>
-      </div>
       <div class="filter-group">
         <b>府県</b>
         <div class="filter-row">
@@ -446,6 +443,10 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
   <div class="ld-head">
     <span class="ld-title">📋 表示中の学校一覧</span>
     <button type="button" id="listDrawerClose" aria-label="閉じる">&times;</button>
+  </div>
+  <div id="search-wrap">
+    <input id="searchInput" type="text" placeholder="学校名で検索..." autocomplete="off">
+    <button id="searchClear" type="button" aria-label="クリア">&times;</button>
   </div>
   <div id="school-list-tabs" class="kind-tabs">
     <button type="button" class="kind-tab active" data-tab-kind="0"><span class="tab-icon">&#9679;</span> 高校 <span class="tab-count" id="tabCountHS">0</span></button>
