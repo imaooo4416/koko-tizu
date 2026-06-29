@@ -317,6 +317,9 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 .pa-city h4{font-size:10.5px;font-weight:700;color:#333;border-bottom:1px solid #ddd;padding-bottom:2px;margin-bottom:2px}
 .pa-item{display:flex;align-items:center;gap:4px;font-size:10px;line-height:1.45;padding:.5px 0}
 .pa-badge{flex-shrink:0;width:16px;height:16px;border-radius:50%;font-size:8.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;border:1.4px solid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pa-badge-univ{border-radius:3px}
+.pa-kindbadge{display:inline-block;padding:3px 9px;border-radius:8px;font-size:11px;font-weight:800;letter-spacing:.5px;margin-right:8px;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;vertical-align:middle}
+.pa-mk-univ > span{border-radius:3px !important}
 .pa-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* numbered map markers (公立=塗り / 私立=白抜き) */
 .pa-mk{background:transparent;border:none}
@@ -2472,67 +2475,103 @@ function generatePDF() {
   var dstr = now.getFullYear() + "年" + (now.getMonth() + 1) + "月" + now.getDate() + "日";
   var mapTargets = [];
 
-  // One page per (prefecture × area-region) that has visible schools — keeps each map readable.
+  // 高校/大学を分けてページを生成、それぞれ番号を1始まりで振り直す
+  var hsVisible = visible.filter(function(m){ return m.kind === 0; });
+  var univVisible = visible.filter(function(m){ return m.kind === 1; });
+
+  function renderPage(opts) {
+    // opts: { kind, p, regionName, list, mapId }
+    var col = PC[opts.p];
+    var isUniv = opts.kind === 1;
+    var kindLabel = isUniv ? "大学" : "高校";
+    var kindBadgeBg = isUniv ? "#3b6cb6" : "#e8635a";
+
+    function badgeStyle(t) {
+      return t === 0
+        ? "background:" + col + ";color:#fff;border-color:" + col
+        : "background:#fff;color:" + col + ";border-color:" + col;
+    }
+
+    var legend = isUniv
+      ? '<span><i style="background:' + col + ';border:1.4px solid ' + col + ';border-radius:3px"></i>国公立</span>' +
+        '<span><i style="background:#fff;border:1.4px solid ' + col + ';border-radius:3px"></i>私立</span>'
+      : '<span><i style="background:' + col + ';border:1.4px solid ' + col + '"></i>公立</span>' +
+        '<span><i style="background:#fff;border:1.4px solid ' + col + '"></i>私立</span>';
+
+    var titleHtml = '<span class="pa-title">' +
+      '<span class="pa-kindbadge" style="background:' + kindBadgeBg + '">' + kindLabel + '</span>' +
+      PN[opts.p];
+    if (opts.regionName) titleHtml += '<span class="pa-rgn"> ' + opts.regionName + '</span>';
+    titleHtml += '</span>';
+
+    var page = document.createElement("div");
+    page.className = "pa-page";
+
+    var head = '<div class="pa-head">' +
+      titleHtml +
+      '<span class="pa-sub" style="background:' + col + '">' + opts.list.length + '校</span>' +
+      '<span class="pa-leg">' + legend + '</span>' +
+      '<span class="pa-meta">' + dstr + ' 作成 ・ 番号は地図と一致</span></div>';
+
+    var listHtml = '<div class="pa-left">';
+    var curCity = null;
+    opts.list.forEach(function(m) {
+      var c = (isUniv ? UCITY[m.idx] : CITY[m.idx]) || "その他";
+      if (c !== curCity) {
+        if (curCity !== null) listHtml += '</div>';
+        listHtml += '<div class="pa-city"><h4>' + c + '</h4>';
+        curCity = c;
+      }
+      var typeKey = isUniv ? m.ut : m.t;
+      var badgeClass = isUniv ? "pa-badge pa-badge-univ" : "pa-badge";
+      listHtml += '<div class="pa-item">' +
+        '<span class="' + badgeClass + '" style="' + badgeStyle(typeKey) + '">' + m._num + '</span>' +
+        '<span class="pa-nm">' + m.name + '</span></div>';
+    });
+    if (curCity !== null) listHtml += '</div>';
+    listHtml += '</div>';
+
+    page.innerHTML = head + '<div class="pa-body">' + listHtml +
+      '<div class="pa-map" id="' + opts.mapId + '"></div></div>';
+    pa.appendChild(page);
+    mapTargets.push({ id: opts.mapId, list: opts.list, p: opts.p, kind: opts.kind });
+  }
+
+  // 高校ページ: 府県×エリア(RGN)ごと
   var prefs = [0, 1, 2, 3, 4, 5];
   prefs.forEach(function(p) {
     var regionNames = RGNNAMES[p] || [""];
     regionNames.forEach(function(regionName, ri) {
-      var region = { name: regionName };
-      var list = visible.filter(function(m) {
+      var list = hsVisible.filter(function(m) {
         return m.p === p && (RGN[m.idx] === ri);
       });
       if (list.length === 0) return;
-
-      // Sort by municipality (in this region) then school name; number within the region
       list.sort(function(a, b) {
         var ca = CITY[a.idx] || "", cb = CITY[b.idx] || "";
         if (ca !== cb) return ca.localeCompare(cb, "ja");
         return a.name.localeCompare(b.name, "ja");
       });
       list.forEach(function(m, i) { m._num = i + 1; });
-
-      var page = document.createElement("div");
-      page.className = "pa-page";
-      var mapId = "pa-map-" + p + "-" + ri;
-      var col = PC[p];
-
-      // public = filled badge, private = outlined badge
-      function badgeStyle(t) {
-        return t === 0
-          ? "background:" + col + ";color:#fff;border-color:" + col
-          : "background:#fff;color:" + col + ";border-color:" + col;
-      }
-
-      var head = '<div class="pa-head">' +
-        '<span class="pa-title">' + PN[p] + '<span class="pa-rgn"> ' + region.name + '</span></span>' +
-        '<span class="pa-sub" style="background:' + col + '">' + list.length + '校</span>' +
-        '<span class="pa-leg">' +
-          '<span><i style="background:' + col + ';border:1.4px solid ' + col + '"></i>公立</span>' +
-          '<span><i style="background:#fff;border:1.4px solid ' + col + '"></i>私立</span>' +
-        '</span>' +
-        '<span class="pa-meta">' + dstr + ' 作成 ・ 番号は地図と一致</span></div>';
-
-      var listHtml = '<div class="pa-left">';
-      var curCity = null;
-      list.forEach(function(m) {
-        var c = CITY[m.idx] || "その他";
-        if (c !== curCity) {
-          if (curCity !== null) listHtml += '</div>';
-          listHtml += '<div class="pa-city"><h4>' + c + '</h4>';
-          curCity = c;
-        }
-        listHtml += '<div class="pa-item">' +
-          '<span class="pa-badge" style="' + badgeStyle(m.t) + '">' + m._num + '</span>' +
-          '<span class="pa-nm">' + m.name + '</span></div>';
+      renderPage({
+        kind: 0, p: p, regionName: regionName, list: list,
+        mapId: "pa-map-hs-" + p + "-" + ri
       });
-      if (curCity !== null) listHtml += '</div>';
-      listHtml += '</div>';
+    });
+  });
 
-      page.innerHTML = head +
-        '<div class="pa-body">' + listHtml +
-        '<div class="pa-map" id="' + mapId + '"></div></div>';
-      pa.appendChild(page);
-      mapTargets.push({ id: mapId, list: list, p: p });
+  // 大学ページ: 府県ごと(大学はRGNデータなし)
+  prefs.forEach(function(p) {
+    var list = univVisible.filter(function(m){ return m.p === p; });
+    if (list.length === 0) return;
+    list.sort(function(a, b) {
+      var ca = UCITY[a.idx] || "", cb = UCITY[b.idx] || "";
+      if (ca !== cb) return ca.localeCompare(cb, "ja");
+      return a.name.localeCompare(b.name, "ja");
+    });
+    list.forEach(function(m, i) { m._num = i + 1; });
+    renderPage({
+      kind: 1, p: p, regionName: "", list: list,
+      mapId: "pa-map-univ-" + p
     });
   });
 
@@ -2589,13 +2628,16 @@ function generatePDF() {
 
     var pts = [];
     var col = PC[t.p];
+    var isUniv = t.kind === 1;
     t.list.forEach(function(m) {
-      // public = filled, private = hollow (white fill, colored ring + number)
-      var st = m.t === 0
+      var typeKey = isUniv ? m.ut : m.t;
+      // typeKey=0(公立/国公立)=塗りつぶし / typeKey=1(私立)=中抜き
+      var st = typeKey === 0
         ? "background:" + col + ";color:#fff;border:1.5px solid #fff"
         : "background:#fff;color:" + col + ";border:2px solid " + col;
+      var iconClass = isUniv ? "pa-mk pa-mk-univ" : "pa-mk";
       var icon = L.divIcon({
-        className: "pa-mk",
+        className: iconClass,
         html: '<span style="' + st + '">' + m._num + '</span>',
         iconSize: [20, 20], iconAnchor: [10, 10]
       });
