@@ -223,7 +223,8 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 #listToggleBtn.is-open{display:none}
 
 /* Leafletの左上コントロール: 詳細/シンプル/鉄道路線を拡大縮小ボタンの「上」に並べる */
-.leaflet-top.leaflet-left{display:flex;flex-direction:column}
+/* align-items:flex-start で各コントロールの幅を縦軸で伸ばさず、自然サイズに保つ */
+.leaflet-top.leaflet-left{display:flex;flex-direction:column;align-items:flex-start}
 .leaflet-top.leaflet-left .leaflet-control-layers{order:1}
 .leaflet-top.leaflet-left .leaflet-control-zoom{order:2}
 
