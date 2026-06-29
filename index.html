@@ -1624,6 +1624,8 @@ var map = L.map("map", {
   zoom: 9,
   zoomControl: true
 });
+// Leaflet 内蔵 attribution を左下に配置
+map.attributionControl.setPosition("bottomleft");
 
 // 行政区域マスク用に専用paneを2枚作成
 // maskPane: 反転マスク(外側を暗く), highlightPane: 選択ポリゴンのハイライト
