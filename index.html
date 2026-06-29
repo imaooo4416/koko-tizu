@@ -268,6 +268,16 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 .acc-link.gmap{color:#0F8C58;background:var(--mint-soft)}
 .acc-link.gmap:hover{border-color:var(--mint);background:#fff}
 
+/* 通学圏ボタン (詳細パネル内) */
+.commute-launcher{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.commute-btn{flex:1;min-width:90px;padding:9px 12px;border:1.5px solid #5BA4E6;background:#fff;color:#2D6FB8;border-radius:var(--r-pill);font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .18s var(--ease);display:flex;align-items:center;justify-content:center;gap:4px}
+.commute-btn:hover{background:#5BA4E6;color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(91,164,230,.3)}
+
+/* 通学圏クリアボタン (地図上の浮きボタン) */
+#commuteClearBtn{position:absolute;bottom:46px;right:18px;z-index:600;padding:10px 16px;border:none;border-radius:var(--r-pill);background:rgba(255,255,255,.95);color:var(--ink);font-size:12.5px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:none;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);transition:all .18s var(--ease);border:1.5px solid var(--border)}
+#commuteClearBtn.show{display:flex}
+#commuteClearBtn:hover{background:#fff;border-color:var(--accent);color:var(--accent-deep)}
+
 /* City filter modal */
 .city-modal-overlay{display:none;position:fixed;inset:0;z-index:2400;background:rgba(61,46,46,.40);backdrop-filter:blur(4px);padding:24px;align-items:center;justify-content:center;animation:fadeIn .3s var(--ease)}
 .city-modal-overlay.open{display:flex}
@@ -450,6 +460,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
     <button id="listToggleBtn" type="button" aria-controls="listDrawer" aria-expanded="false" title="学校一覧を開く">
       <span class="lt-icon">&#9776;</span> 学校一覧 <span id="listToggleCount" class="lt-count"></span>
     </button>
+    <button id="commuteClearBtn" type="button" aria-label="通学圏を消す">&times; 通学圏を消す</button>
     <div id="footer-bar">
       <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a> (BSD-2-Clause) |
       タイル: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a> |
@@ -529,6 +540,7 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 <script>
 (function(){
 "use strict";
@@ -2858,6 +2870,13 @@ function openPanel(arg) {
   var gmapQuery = encodeURIComponent(displayName);
   var gmapUrl = "https://www.google.com/maps/search/?api=1&query=" + gmapQuery + "&query_place_id=&center=" + m.lat + "," + m.lng;
   var gmapLink = '<a class="acc-link gmap" href="' + gmapUrl + '" target="_blank" rel="noopener">📍 Google Mapで表示</a>';
+  // 通学圏ボタン (起点=この学校)
+  var commuteBtn = '<div class="commute-launcher">' +
+    '<button type="button" class="commute-btn" data-budget="30">🚶 30分通学圏</button>' +
+    '<button type="button" class="commute-btn" data-budget="45">🚉 45分</button>' +
+    '<button type="button" class="commute-btn" data-budget="60">🚆 60分</button>' +
+    '</div>';
+
   if (acc) {
     var html = '<div class="acc-item">';
     if (acc.s) html += '<b>最寄駅:</b> ' + acc.s + '<br>';
@@ -2867,13 +2886,20 @@ function openPanel(arg) {
     var links = '<div class="acc-links">';
     if (acc.u) links += '<a class="acc-link" href="' + acc.u + '" target="_blank" rel="noopener">公式サイト</a>';
     links += gmapLink + '</div>';
-    html += links + '</div>';
+    html += links + '</div>' + commuteBtn;
     accBody.innerHTML = html;
     document.getElementById("accSec").style.display = "";
   } else {
-    accBody.innerHTML = '<div class="acc-item">' + gmapLink + '</div>';
+    accBody.innerHTML = '<div class="acc-item">' + gmapLink + '</div>' + commuteBtn;
     document.getElementById("accSec").style.display = "";
   }
+  // 通学圏ボタンにハンドラ
+  accBody.querySelectorAll(".commute-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var min = parseInt(btn.dataset.budget, 10);
+      showCommuteAreaForSchool(m, min);
+    });
+  });
 
   // 沿線情報セクション
   var lines = findNearbyLines(m.lat, m.lng);
@@ -3108,7 +3134,239 @@ fetch("rail_stations.json").then(function(r){return r.json();}).then(function(d)
   });
   RAIL_STATIONS = d;
   if (fs.alongRail) refreshAlongRail();
+  // 通学圏マップ用に駅グラフを構築
+  buildRailGraph();
 });
+
+// ========== 通学圏マップ (Commuting Area / Isochrone) ==========
+// 駅グラフ + Dijkstra で「指定地点から N分以内に到達できる範囲」を可視化
+var railGraph = null;        // station_id -> { nbrs: [{id, weight_min}] }
+var graphStations = null;    // station_id -> station object
+var commuteLayer = null;     // 描画中のポリゴンレイヤー
+
+function distM_LL(lat1, lng1, lat2, lng2) {
+  var dy = (lat2 - lat1) * 111000;
+  var dx = (lng2 - lng1) * 111000 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function railSpeedKmh(op, line) {
+  // 平均運転速度 (km/h) — 停車時間を別途加算
+  if (op === "西日本旅客鉄道") {
+    if (line.indexOf("東海道") >= 0 || line.indexOf("山陽") >= 0) return 55; // 新快速/快速主体
+    return 45;
+  }
+  if (op === "東海旅客鉄道") return 55;
+  if (op === "近畿日本鉄道" && line.indexOf("特急") < 0) return 45;
+  if (op === "南海電気鉄道") return 45;
+  if (op === "京阪電気鉄道") return 42;
+  if (op === "阪急電鉄") return 42;
+  if (op === "阪神電気鉄道") return 38;
+  if (op === "山陽電気鉄道") return 42;
+  if (op === "神戸電鉄") return 38;
+  if (op.indexOf("市") >= 0 || op === "大阪市高速電気軌道" || op === "神戸新交通") return 32; // 地下鉄/新交通
+  if (op === "京福電気鉄道" || op === "阪堺電気軌道") return 22; // 路面電車
+  return 35;
+}
+
+function buildRailGraph() {
+  if (!RAIL_STATIONS || !RAIL_STATIONS.length) return;
+  // 路線ごとにグルーピング
+  var byLine = new Map();
+  RAIL_STATIONS.forEach(function(s, i){
+    var key = s.o + "|" + s.l;
+    if (!byLine.has(key)) byLine.set(key, []);
+    byLine.get(key).push({s: s, id: i});
+  });
+  // グラフ初期化
+  railGraph = new Map();
+  graphStations = RAIL_STATIONS;
+  for (var i = 0; i < RAIL_STATIONS.length; i++) railGraph.set(i, []);
+
+  // 各路線で、各駅から同一路線内の最近隣2駅にエッジを張る (≒前後の駅)
+  byLine.forEach(function(group){
+    var speed = railSpeedKmh(group[0].s.o, group[0].s.l);
+    group.forEach(function(item){
+      var st = item.s, id = item.id;
+      // 自分以外の同路線駅
+      var others = group.filter(function(o){ return o.id !== id; })
+        .map(function(o){ return {id: o.id, d: distM_LL(st.lat, st.lng, o.s.lat, o.s.lng)}; })
+        .sort(function(a,b){ return a.d - b.d; })
+        .slice(0, 2);
+      others.forEach(function(nb){
+        var time = (nb.d / 1000) / speed * 60 + 0.5;  // 駅停車30秒
+        railGraph.get(id).push({id: nb.id, w: time});
+      });
+    });
+  });
+
+  // 乗換エッジ: 任意2駅が 400m 以内なら乗換可能 (徒歩 + 乗換バッファ 2分)
+  // O(N^2) は1900駅で重い → 空間ハッシュで近隣探索
+  var GRID = 0.005; // 約 0.5km 弱
+  var hash = new Map();
+  RAIL_STATIONS.forEach(function(s, i){
+    var key = Math.floor(s.lat/GRID) + "_" + Math.floor(s.lng/GRID);
+    if (!hash.has(key)) hash.set(key, []);
+    hash.get(key).push(i);
+  });
+  function neighbors(i){
+    var s = RAIL_STATIONS[i];
+    var gy = Math.floor(s.lat/GRID), gx = Math.floor(s.lng/GRID);
+    var result = [];
+    for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+      var key = (gy+dy) + "_" + (gx+dx);
+      var arr = hash.get(key);
+      if (arr) for (var k = 0; k < arr.length; k++) result.push(arr[k]);
+    }
+    return result;
+  }
+  for (var i = 0; i < RAIL_STATIONS.length; i++) {
+    var si = RAIL_STATIONS[i];
+    var nbList = neighbors(i);
+    for (var k = 0; k < nbList.length; k++) {
+      var j = nbList[k];
+      if (j <= i) continue;
+      var sj = RAIL_STATIONS[j];
+      // 同事業者・同路線は除外 (上で既に接続済み)
+      if (si.o === sj.o && si.l === sj.l) continue;
+      var d = distM_LL(si.lat, si.lng, sj.lat, sj.lng);
+      if (d > 400) continue;
+      var time = d / 80 + 2;  // 徒歩 80m/min + 乗換バッファ 2分
+      railGraph.get(i).push({id: j, w: time});
+      railGraph.get(j).push({id: i, w: time});
+    }
+  }
+  console.log("[railGraph] built: " + RAIL_STATIONS.length + " nodes, " +
+    Array.from(railGraph.values()).reduce(function(s,a){return s+a.length;}, 0) + " edges");
+}
+
+// 起点 (lat, lng) から徒歩 WALK_MAX_M 以内の駅 (徒歩アクセス可能駅)
+function walkingAccessStations(lat, lng, walkMaxM) {
+  walkMaxM = walkMaxM || 1500;
+  var result = [];
+  for (var i = 0; i < RAIL_STATIONS.length; i++) {
+    var s = RAIL_STATIONS[i];
+    var d = distM_LL(lat, lng, s.lat, s.lng);
+    if (d <= walkMaxM) {
+      result.push({id: i, walkMin: d / 80});  // 80m/分
+    }
+  }
+  return result;
+}
+
+// Dijkstra: 起点駅集合 (各々の初期コスト) から、各駅への最小到達時間
+function dijkstraFrom(initialSet, maxMin) {
+  var INF = Infinity;
+  var dist = new Array(RAIL_STATIONS.length).fill(INF);
+  initialSet.forEach(function(seed){
+    if (seed.walkMin < dist[seed.id]) dist[seed.id] = seed.walkMin;
+  });
+  // 簡易バイナリヒープ
+  var heap = [];
+  function push(d, id){ heap.push({d: d, id: id}); heap.sort(function(a,b){return a.d-b.d;}); }
+  function pop(){ return heap.shift(); }
+  initialSet.forEach(function(seed){ push(seed.walkMin, seed.id); });
+  while (heap.length) {
+    var cur = pop();
+    if (cur.d > dist[cur.id]) continue;
+    if (cur.d >= maxMin) continue;
+    var nbrs = railGraph.get(cur.id) || [];
+    for (var i = 0; i < nbrs.length; i++) {
+      var nb = nbrs[i];
+      var nd = cur.d + nb.w;
+      if (nd < dist[nb.id] && nd <= maxMin) {
+        dist[nb.id] = nd;
+        push(nd, nb.id);
+      }
+    }
+  }
+  return dist;
+}
+
+// 通学圏ポリゴンを計算 (Turf.js使用)
+function computeCommuteArea(lat, lng, budgetMin) {
+  if (!railGraph) return null;
+  var WALK_MAX_M = Math.min(budgetMin * 80, 1500);  // 単一徒歩は最大1.5km
+  var access = walkingAccessStations(lat, lng, WALK_MAX_M);
+  var dist = dijkstraFrom(access, budgetMin);
+  // 起点 + 到達可能駅 → 各点に「残り徒歩予算」円を作る
+  var circles = [];
+  // 起点
+  circles.push(turf.circle([lng, lat], Math.min(budgetMin * 80, 1500) / 1000, {steps: 32, units: "kilometers"}));
+  // 到達可能駅
+  for (var i = 0; i < dist.length; i++) {
+    if (dist[i] === Infinity) continue;
+    if (dist[i] >= budgetMin) continue;
+    var remaining = budgetMin - dist[i];
+    var radius = Math.min(remaining * 80, 1200) / 1000;  // km
+    if (radius <= 0) continue;
+    var s = RAIL_STATIONS[i];
+    circles.push(turf.circle([s.lng, s.lat], radius, {steps: 18, units: "kilometers"}));
+  }
+  // union
+  if (circles.length === 0) return null;
+  var merged = circles[0];
+  for (var k = 1; k < circles.length; k++) {
+    try { merged = turf.union(merged, circles[k]); } catch(e) { /* skip */ }
+  }
+  return merged;
+}
+
+function clearCommuteLayer() {
+  if (commuteLayer) {
+    map.removeLayer(commuteLayer);
+    commuteLayer = null;
+  }
+  var clearBtn = document.getElementById("commuteClearBtn");
+  if (clearBtn) clearBtn.classList.remove("show");
+}
+
+function renderCommuteArea(lat, lng, budgetMin) {
+  clearCommuteLayer();
+  if (!railGraph) {
+    alert("駅データを読み込み中です。数秒後に再試行してください。");
+    return;
+  }
+  var t0 = performance.now();
+  var poly = computeCommuteArea(lat, lng, budgetMin);
+  var t1 = performance.now();
+  if (!poly) { alert("通学圏を計算できませんでした"); return; }
+  commuteLayer = L.geoJSON(poly, {
+    style: {
+      color: "#5BA4E6",
+      weight: 2.5,
+      fillColor: "#5BA4E6",
+      fillOpacity: 0.18,
+      opacity: 0.8
+    }
+  }).addTo(map);
+  // 起点マーカー
+  var startMarker = L.circleMarker([lat, lng], {
+    radius: 8, fillColor: "#F4A66E", color: "#fff", weight: 2.5, fillOpacity: 1
+  }).addTo(commuteLayer);
+  console.log("[commute] " + budgetMin + "min from (" + lat.toFixed(4) + "," + lng.toFixed(4) + ") computed in " + Math.round(t1-t0) + "ms");
+  // クリアボタン表示
+  var clearBtn = document.getElementById("commuteClearBtn");
+  if (clearBtn) {
+    clearBtn.textContent = "× " + budgetMin + "分通学圏を消す";
+    clearBtn.classList.add("show");
+  }
+  // 自動ズーム
+  map.fitBounds(commuteLayer.getBounds(), {padding: [40, 40], maxZoom: 13});
+}
+
+// クリアボタンの初期化
+(function(){
+  var btn = document.getElementById("commuteClearBtn");
+  if (btn) btn.addEventListener("click", clearCommuteLayer);
+})();
+
+// 詳細パネルから呼び出すボタン用 (m: marker entry)
+function showCommuteAreaForSchool(m, budgetMin) {
+  budgetMin = budgetMin || 30;
+  renderCommuteArea(m.lat, m.lng, budgetMin);
+}
+
 
 // 沿線モード用の駅円
 var alongRailCircles = [];
