@@ -1518,37 +1518,42 @@ fetch("admin_city.geojson").then(function(r){return r.json();}).then(function(d)
   updateAdminClip();
 }).catch(function(){});
 
-// 現在の単一選択を検出: { type:"pref"|"city", feature:..., colorIdx:... } か null
-function detectSingleSelection() {
-  // 府県: 1つだけ true ?
+// 現在の表示対象を検出 (常時マスク用):
+//   - 1府県のみON + その府県の市区町村が一部だけ表示 → city モード (該当市区町村feature群)
+//   - それ以外で1つ以上の府県がON → pref モード (該当府県feature群)
+//   - 何も選択なし → null
+function detectSelectionContext() {
+  if (!ADMIN_PREF || !ADMIN_CITY) return null;
   var activePrefs = [];
   for (var i = 0; i < 6; i++) if (fs.p[i]) activePrefs.push(i);
-  if (activePrefs.length !== 1) return null;
-  var p = activePrefs[0];
-  // 同府県内の市区町村: 全表示でなく かつ 1つだけ表示の場合 → city モード
-  if (ADMIN_CITY) {
-    // 該当府県の全市区町村キー
+  if (activePrefs.length === 0) return null;
+
+  // city モード判定: 単一府県 + その府県の市区町村が部分表示
+  if (activePrefs.length === 1) {
+    var p = activePrefs[0];
     var stats = (typeof getActiveCityStats === "function") ? getActiveCityStats() : [];
     var prefCities = stats.filter(function(s){ return s.pref === p; });
     var visibleCities = prefCities.filter(function(s){ return !fs.hiddenCities[s.key]; });
-    if (prefCities.length > 1 && visibleCities.length === 1) {
-      var cityName = visibleCities[0].city;
-      var feat = ADMIN_CITY.features.find(function(f){
-        return f.properties.N03_001 === PN[p] && f.properties.N03_004 === cityName;
-      });
-      if (feat) return { type: "city", feature: feat, colorIdx: p };
+    if (prefCities.length > 1 && visibleCities.length < prefCities.length && visibleCities.length > 0) {
+      var feats = visibleCities.map(function(s){
+        return ADMIN_CITY.features.find(function(f){
+          return f.properties.N03_001 === PN[p] && f.properties.N03_004 === s.city;
+        });
+      }).filter(Boolean);
+      if (feats.length) return { type: "city", features: feats, prefIdxs: [p] };
     }
   }
-  // 府県モード
-  if (ADMIN_PREF) {
-    var pf = ADMIN_PREF.features.find(function(f){ return f.properties.N03_001 === PN[p]; });
-    if (pf) return { type: "pref", feature: pf, colorIdx: p };
-  }
+
+  // pref モード: アクティブな府県すべて
+  var prefFeats = activePrefs.map(function(p){
+    return ADMIN_PREF.features.find(function(f){ return f.properties.N03_001 === PN[p]; });
+  }).filter(Boolean);
+  if (prefFeats.length) return { type: "pref", features: prefFeats, prefIdxs: activePrefs };
   return null;
 }
 
-// マスク用 worldRing (右回りの大きな長方形 — 緯度経度範囲)
-var WORLD_RING = [[-90,-180],[-90,180],[90,180],[90,-180],[-90,-180]];
+// マスク用 worldRing (Web Mercator safe範囲。clockwise)
+var WORLD_RING = [[-85,-180],[85,-180],[85,180],[-85,180],[-85,-180]];
 
 // GeoJSON Polygon/MultiPolygon → Leaflet latlngs配列(穴あり) 変換
 function geoToLatLngs(geom) {
@@ -1577,87 +1582,86 @@ function clearAdminClip() {
   if (adminHighlightLayer) { map.removeLayer(adminHighlightLayer); adminHighlightLayer = null; }
 }
 
-function drawAdminClip(sel) {
-  clearAdminClip();
-  if (!sel) return;
-  var col = PC[sel.colorIdx];
-  var darkCol = PC_DARK[sel.colorIdx];
-  var rings = geoToLatLngs(sel.feature.geometry);
-  if (!rings) return;
-  // 反転マスク: 世界全体 - 選択ポリゴン(穴として)
-  // L.polygon は [outerRing, hole1, hole2, ...] の形を受ける
-  // 選択がMultiPolygonの場合は各pieceを穴にする
+// feature[]から穴(outer ring配列)を抽出
+function featuresToHoles(features) {
   var holes = [];
-  if (sel.feature.geometry.type === "Polygon") {
-    holes.push(rings[0]); // 外周だけを穴に
-  } else { // MultiPolygon
-    rings.forEach(function(poly){ holes.push(poly[0]); });
-  }
+  features.forEach(function(f){
+    var rings = geoToLatLngs(f.geometry);
+    if (!rings) return;
+    if (f.geometry.type === "Polygon") {
+      holes.push(rings[0]);
+    } else {
+      rings.forEach(function(poly){ holes.push(poly[0]); });
+    }
+  });
+  return holes;
+}
+
+function drawAdminClip(ctx) {
+  clearAdminClip();
+  if (!ctx || !ctx.features || !ctx.features.length) return;
+  var holes = featuresToHoles(ctx.features);
+  if (!holes.length) return;
+  // 反転マスク: 世界全体 − 選択ポリゴン群(穴として)
   adminMaskLayer = L.polygon([WORLD_RING].concat(holes), {
     pane: "adminMaskPane",
-    color: "#0a0f1a",
-    fillColor: "#0a0f1a",
-    fillOpacity: 0.45,
-    stroke: false,
-    interactive: false,
-    className: "admin-mask-poly"
+    color: "#1a2540", fillColor: "#1a2540",
+    fillOpacity: 0.72,
+    stroke: false, interactive: false,
+    className: "admin-mask-poly",
+    fillRule: "evenodd"
   }).addTo(map);
-  // 内側ハイライト
-  adminHighlightLayer = L.polygon(rings, {
-    pane: "adminHighlightPane",
-    color: darkCol,
-    weight: 2.6,
-    opacity: 0.95,
-    fillColor: col,
-    fillOpacity: 0.06,
-    interactive: false,
-    className: "admin-highlight-poly"
-  }).addTo(map);
+  // 内側ハイライト: feature毎に府県色で描画
+  adminHighlightLayer = L.featureGroup();
+  ctx.features.forEach(function(f){
+    var rings = geoToLatLngs(f.geometry);
+    if (!rings) return;
+    var prefName = f.properties.N03_001;
+    var pIdx = PN.indexOf(prefName);
+    var col = pIdx >= 0 ? PC[pIdx] : "#888888";
+    var darkCol = pIdx >= 0 ? PC_DARK[pIdx] : "#444444";
+    L.polygon(rings, {
+      pane: "adminHighlightPane",
+      color: darkCol, weight: 2.4, opacity: 0.95,
+      fillColor: col, fillOpacity: 0.05,
+      interactive: false,
+      className: "admin-highlight-poly"
+    }).addTo(adminHighlightLayer);
+  });
+  adminHighlightLayer.addTo(map);
 }
 
-// 単一選択時のbounds取得
-function getSelectionBounds(sel) {
-  if (!sel) return null;
-  var b = adminHighlightLayer ? adminHighlightLayer.getBounds() : null;
-  if (b && b.isValid()) return b;
-  // フォールバック: 該当マーカー集計
-  return null;
-}
-
-// updateAdminClip: fs変化時に呼ばれる。drawClip + zoom判定
-function updateAdminClip(opts) {
-  var sel = detectSingleSelection();
-  drawAdminClip(sel);
-  if (opts && opts.zoom !== false && sel) {
-    var b = getSelectionBounds(sel);
-    if (b) map.flyToBounds(b.pad(0.08), { duration: 1.1, easeLinearity: 0.25 });
-  }
+// 選択コンテキスト(features)からbounds算出
+function getContextBounds(ctx) {
+  if (!ctx || !adminHighlightLayer) return null;
+  var b = adminHighlightLayer.getBounds();
+  return (b && b.isValid()) ? b : null;
 }
 
 function fitMapToVisible() {
-  // 単一選択モードが効くなら、そちらを優先
-  var sel = detectSingleSelection();
-  if (sel) {
-    drawAdminClip(sel);
-    var b = getSelectionBounds(sel);
+  var ctx = detectSelectionContext();
+  drawAdminClip(ctx);
+  if (ctx) {
+    var b = getContextBounds(ctx);
     if (b && b.isValid()) {
-      map.flyToBounds(b.pad(0.08), { duration: 1.0, easeLinearity: 0.25 });
+      // ズーム条件: pref(複数)なら maxZoom低め、city/単一prefは無制限
+      var isMulti = ctx.type === "pref" && ctx.features.length > 1;
+      map.flyToBounds(b.pad(0.05), {
+        duration: 1.0, easeLinearity: 0.25,
+        maxZoom: isMulti ? 11 : 16
+      });
       return;
     }
-  } else {
-    clearAdminClip();
   }
-  // 通常: 表示中マーカーから動的算出
+  // フォールバック: 表示中マーカーから
   var bounds = [];
-  markers.forEach(function(m) {
-    if (isVisible(m)) bounds.push([m.lat, m.lng]);
-  });
-  if (bounds.length === 1) {
-    map.flyTo(bounds[0], 14, {duration: 0.6});
-  } else if (bounds.length > 1) {
-    map.flyToBounds(L.latLngBounds(bounds).pad(0.15), {duration: 0.6, maxZoom: 13});
-  }
+  markers.forEach(function(m) { if (isVisible(m)) bounds.push([m.lat, m.lng]); });
+  if (bounds.length === 1) map.flyTo(bounds[0], 14, {duration: 0.6});
+  else if (bounds.length > 1) map.flyToBounds(L.latLngBounds(bounds).pad(0.15), {duration: 0.6, maxZoom: 13});
 }
+
+// 後方互換: 旧APIエイリアス
+function updateAdminClip() { drawAdminClip(detectSelectionContext()); }
 
 function getActiveCityStats() {
   var stats = {};
