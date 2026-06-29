@@ -1509,12 +1509,21 @@ function isVisible(m) {
 // 行政区域 GeoJSON (府県境＋市区町村境)
 var ADMIN_PREF = null;
 var ADMIN_CITY = null;
-fetch("admin_pref.geojson").then(function(r){return r.json();}).then(function(d){
-  ADMIN_PREF = d;
-  updateAdminClip();
-}).catch(function(){});
-fetch("admin_city.geojson").then(function(r){return r.json();}).then(function(d){
-  ADMIN_CITY = d;
+// 政令指定都市の区を1つの市にまとめるための高速インデックス: "府県名|市区町村名" → features[]
+var ADMIN_CITY_INDEX = null;
+// 両ファイルが揃ってから1度だけ描画 (チラつき防止)
+Promise.all([
+  fetch("admin_pref.geojson").then(function(r){return r.json();}),
+  fetch("admin_city.geojson").then(function(r){return r.json();})
+]).then(function(arr){
+  ADMIN_PREF = arr[0];
+  ADMIN_CITY = arr[1];
+  // インデックス構築 (大阪市等の政令市は複数区featureを1キーに集約)
+  ADMIN_CITY_INDEX = {};
+  ADMIN_CITY.features.forEach(function(f){
+    var key = f.properties.N03_001 + "|" + f.properties.N03_004;
+    (ADMIN_CITY_INDEX[key] = ADMIN_CITY_INDEX[key] || []).push(f);
+  });
   updateAdminClip();
 }).catch(function(){});
 
@@ -1522,62 +1531,74 @@ fetch("admin_city.geojson").then(function(r){return r.json();}).then(function(d)
 //   - 1府県のみON + その府県の市区町村が一部だけ表示 → city モード (該当市区町村feature群)
 //   - それ以外で1つ以上の府県がON → pref モード (該当府県feature群)
 //   - 何も選択なし → null
+// 市区町村feature取得 (政令市は複数区を全部返す)
+function lookupCityFeats(prefName, cityName) {
+  if (!ADMIN_CITY_INDEX) return [];
+  return ADMIN_CITY_INDEX[prefName + "|" + cityName] || [];
+}
+
 function detectSelectionContext() {
   if (!ADMIN_PREF || !ADMIN_CITY) return null;
   var activePrefs = [];
   for (var i = 0; i < 6; i++) if (fs.p[i]) activePrefs.push(i);
-  if (activePrefs.length === 0) return null;
+  if (activePrefs.length === 0) return { type: "empty", features: [] };
 
   var stats = (typeof getActiveCityStats === "function") ? getActiveCityStats() : [];
   var cityFilterActive = false;
   var totalCities = 0, totalHidden = 0;
   var visibleFeats = [];
   var hiddenFeats = [];
+  // 「全市区町村OFF」の府県は実質非表示扱い → effectivePrefs から除外
+  var effectivePrefs = [];
+
   activePrefs.forEach(function(p){
     var prefCities = stats.filter(function(s){ return s.pref === p; });
     var visibleCities = prefCities.filter(function(s){ return !fs.hiddenCities[s.key]; });
     var hiddenCities = prefCities.filter(function(s){ return !!fs.hiddenCities[s.key]; });
-    if (prefCities.length > 1 && hiddenCities.length > 0) {
+
+    // 全市区町村OFF → この府県は表示しない (effectivePrefs に追加しない)
+    if (prefCities.length > 0 && visibleCities.length === 0) {
+      return; // この府県は無視
+    }
+    effectivePrefs.push(p);
+
+    // 部分絞り込み判定 (1市区町村しかない府県でもhiddenがあればactive扱い)
+    if (prefCities.length > 0 && hiddenCities.length > 0) {
       cityFilterActive = true;
       totalCities += prefCities.length;
       totalHidden += hiddenCities.length;
     }
     visibleCities.forEach(function(s){
-      var feat = ADMIN_CITY.features.find(function(f){
-        return f.properties.N03_001 === PN[p] && f.properties.N03_004 === s.city;
-      });
-      if (feat) visibleFeats.push(feat);
+      lookupCityFeats(PN[p], s.city).forEach(function(f){ visibleFeats.push(f); });
     });
     hiddenCities.forEach(function(s){
-      var feat = ADMIN_CITY.features.find(function(f){
-        return f.properties.N03_001 === PN[p] && f.properties.N03_004 === s.city;
-      });
-      if (feat) hiddenFeats.push(feat);
+      lookupCityFeats(PN[p], s.city).forEach(function(f){ hiddenFeats.push(f); });
     });
   });
 
+  if (effectivePrefs.length === 0) return { type: "empty", features: [] };
+
   if (cityFilterActive) {
-    // 除外比率が25%未満 → 府県全体ハイライト + 除外市区町村だけ「穴」として暗く
     var hiddenRatio = totalCities > 0 ? totalHidden / totalCities : 0;
     if (hiddenRatio < 0.25 && hiddenFeats.length > 0) {
-      var prefFeats = activePrefs.map(function(p){
+      var prefFeats = effectivePrefs.map(function(p){
         return ADMIN_PREF.features.find(function(f){ return f.properties.N03_001 === PN[p]; });
       }).filter(Boolean);
       if (prefFeats.length) {
-        return { type: "pref-with-holes", features: prefFeats, holes: hiddenFeats, prefIdxs: activePrefs };
+        return { type: "pref-with-holes", features: prefFeats, holes: hiddenFeats, prefIdxs: effectivePrefs };
       }
     }
     if (visibleFeats.length) {
-      return { type: "city", features: visibleFeats, prefIdxs: activePrefs };
+      return { type: "city", features: visibleFeats, prefIdxs: effectivePrefs };
     }
   }
 
-  // pref モード: アクティブな府県すべて
-  var prefFeats = activePrefs.map(function(p){
+  // pref モード
+  var prefFeats2 = effectivePrefs.map(function(p){
     return ADMIN_PREF.features.find(function(f){ return f.properties.N03_001 === PN[p]; });
   }).filter(Boolean);
-  if (prefFeats.length) return { type: "pref", features: prefFeats, prefIdxs: activePrefs };
-  return null;
+  if (prefFeats2.length) return { type: "pref", features: prefFeats2, prefIdxs: effectivePrefs };
+  return { type: "empty", features: [] };
 }
 
 // マスク用 worldRing (Web Mercator safe範囲。clockwise)
@@ -1627,7 +1648,8 @@ function featuresToHoles(features) {
 
 function drawAdminClip(ctx) {
   clearAdminClip();
-  if (!ctx || !ctx.features || !ctx.features.length) return;
+  // empty / null / 空features は確実にクリアして終了
+  if (!ctx || ctx.type === "empty" || !ctx.features || !ctx.features.length) return;
   var holes = featuresToHoles(ctx.features);
   // pref-with-holes モード: 除外市区町村を「穴の中の穴」として追加
   // evenodd fill ruleで偶数回ネストすると塗りつぶされる→マスク色に戻る
@@ -1674,7 +1696,7 @@ function getContextBounds(ctx) {
 function fitMapToVisible() {
   var ctx = detectSelectionContext();
   drawAdminClip(ctx);
-  if (ctx) {
+  if (ctx && ctx.type !== "empty") {
     var b = getContextBounds(ctx);
     if (b && b.isValid()) {
       // ズーム条件: pref(複数)なら maxZoom低め、city/単一prefは無制限
@@ -1691,6 +1713,7 @@ function fitMapToVisible() {
   markers.forEach(function(m) { if (isVisible(m)) bounds.push([m.lat, m.lng]); });
   if (bounds.length === 1) map.flyTo(bounds[0], 14, {duration: 0.6});
   else if (bounds.length > 1) map.flyToBounds(L.latLngBounds(bounds).pad(0.15), {duration: 0.6, maxZoom: 13});
+  else map.flyTo([34.75, 135.55], 9, {duration: 0.6}); // 0件: 関西全体に戻す
 }
 
 // 後方互換: 旧APIエイリアス
