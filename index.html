@@ -105,8 +105,8 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 /* Leaflet marker drop shadow */
 .leaflet-overlay-pane svg path{filter:drop-shadow(0 1.5px 2.5px rgba(61,46,46,.30))}
 
-/* 選択中の鉄道路線: 強めグロー (CSS filter 2段) で OpenRailwayMap タイルと差別化 */
-.leaflet-overlay-pane svg path.rail-highlight-line{filter:drop-shadow(0 0 4px currentColor) drop-shadow(0 0 9px currentColor)}
+/* 選択中の鉄道路線: グローなし、ドット点線表現 */
+.leaflet-overlay-pane svg path.rail-highlight-line{filter:none}
 
 /* 行政区域マスク: 出現フェード */
 .admin-mask-poly{animation:adminMaskFade .55s var(--ease) both}
@@ -2637,6 +2637,8 @@ function updateRailLayers() {
       var line = L.polyline(latlngs, {
         color: col, weight: 6, opacity: 1.0,
         lineCap: "round", lineJoin: "round",
+        // dash 0px + 隙間 18px、lineCap:round で「丸ドットだけ」が等間隔に並ぶ
+        dashArray: "0 18",
         className: "rail-highlight-line"
       }).addTo(map);
       // CSS currentColor が drop-shadow に効くように、SVG path の color プロパティを設定
