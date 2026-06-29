@@ -1734,17 +1734,27 @@ function updateAdminClip() { drawAdminClip(detectSelectionContext()); }
 
 function getActiveCityStats() {
   var stats = {};
-  var list = [];
-
+  // ADMIN_CITY がロード済みなら 関西6府県の全市区町村を列挙 (高校0校の自治体も含む)
+  if (typeof ADMIN_CITY !== "undefined" && ADMIN_CITY && ADMIN_CITY.features) {
+    ADMIN_CITY.features.forEach(function(f) {
+      var prefName = f.properties && f.properties.N03_001;
+      var cityName = f.properties && f.properties.N03_004;
+      if (!prefName || !cityName) return;
+      var prefIdx = PN.indexOf(prefName);
+      if (prefIdx < 0 || !fs.p[prefIdx]) return;
+      var key = prefIdx + "|" + cityName;
+      if (!stats[key]) stats[key] = { key: key, pref: prefIdx, city: cityName, count: 0 };
+    });
+  }
+  // markers から所属高校数をカウント (政令市の区は m.city が "大阪市" 等で集約済み)
   markers.forEach(function(m) {
     if (!fs.p[m.p] || !m.city) return;
     if (!stats[m.cityKey]) {
-      stats[m.cityKey] = {key: m.cityKey, pref: m.p, city: m.city, count: 0};
-      list.push(stats[m.cityKey]);
+      stats[m.cityKey] = { key: m.cityKey, pref: m.p, city: m.city, count: 0 };
     }
     stats[m.cityKey].count++;
   });
-
+  var list = Object.values(stats);
   list.sort(function(a, b) {
     if (a.pref !== b.pref) return a.pref - b.pref;
     return a.city.localeCompare(b.city, "ja");
