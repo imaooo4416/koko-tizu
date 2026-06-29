@@ -2621,27 +2621,39 @@ function updateRailLayers() {
       var latlngs = s.map(function(c){ return [c[1], c[0]]; });
       if (latlngs.length >= 2) rawSegs.push(latlngs);
     });
-    // 阪急京都線は梅田〜十三区間が神戸線のデータに含まれるため、ここで合成
+    // 阪急京都線は梅田〜十三区間がOSM上で神戸線データに統合されているため、
+    // 神戸線セグメントから抽出するのではなく梅田→十三のクリーンな線分を手動付与。
+    // (神戸線データには上下線/連絡線が重複しているためフィルタ抽出だと dashArray が乱れる)
     if (l.op === "阪急電鉄" && l.line === "京都線") {
-      var kobe = RAIL_LINES.find(function(x){ return x.op === "阪急電鉄" && x.line === "神戸線"; });
-      if (kobe) {
-        kobe.segs.forEach(function(s){
-          // 梅田(135.498)〜十三(135.487)区間に収まるセグメントのみ抽出
-          if (s.every(function(c){ return c[0] >= 135.486 && c[0] <= 135.500; })) {
-            var ll = s.map(function(c){ return [c[1], c[0]]; });
-            if (ll.length >= 2) rawSegs.push(ll);
-          }
-        });
-      }
+      // 梅田駅(34.7050, 135.4982) → 十三駅(34.7211, 135.4838)
+      rawSegs.push([[34.7050, 135.4982], [34.7128, 135.4922], [34.7211, 135.4838]]);
     }
     // 地理的に連続するよう連結ソート
     var chained = chainSegments(rawSegs);
-    // 全セグメントを1本の latlngs に結合 → dashArray が連続して等間隔ドットに
-    var combined = [];
-    chained.forEach(function(seg){
-      for (var i = 0; i < seg.length; i++) combined.push(seg[i]);
+    // 隣接端点が近いセグメントのみを1本に結合(離れた端点間の直線にdashArrayドットが出現するのを防ぐ)
+    var SEG_GAP_M = 200;  // この距離より離れた端点間は別ポリラインに分割
+    var groups = [];
+    var current = [];
+    chained.forEach(function(seg, idx){
+      if (current.length === 0) {
+        current = seg.slice();
+      } else {
+        var lastPt = current[current.length - 1];
+        var firstPt = seg[0];
+        var dy = (firstPt[0] - lastPt[0]) * 111000;
+        var dx = (firstPt[1] - lastPt[1]) * 111000 * Math.cos(lastPt[0] * Math.PI / 180);
+        var gap = Math.sqrt(dx*dx + dy*dy);
+        if (gap <= SEG_GAP_M) {
+          for (var i = 0; i < seg.length; i++) current.push(seg[i]);
+        } else {
+          groups.push(current);
+          current = seg.slice();
+        }
+      }
     });
-    if (combined.length >= 2) {
+    if (current.length >= 2) groups.push(current);
+    groups.forEach(function(combined){
+      if (combined.length < 2) return;
       var line = L.polyline(combined, {
         color: col, weight: 6, opacity: 1.0,
         lineCap: "round", lineJoin: "round",
@@ -2651,7 +2663,7 @@ function updateRailLayers() {
       }).addTo(map);
       if (line._path) line._path.style.color = col;
       railPolylines.push(line);
-    }
+    });
     chained.forEach(function(latlngs){
       selectedSegs.push({ op: l.op, latlngs: latlngs, color: col });
     });
