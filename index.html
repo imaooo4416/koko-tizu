@@ -215,12 +215,17 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 #listDrawer #listDrawerClose:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 #listDrawer #school-list{flex:1}
 
-/* 一覧を開くフローティングボタン (地図右下のFAB) */
-#listToggleBtn{position:absolute;bottom:46px;right:18px;z-index:600;padding:11px 18px;border:none;border-radius:var(--r-pill);background:linear-gradient(135deg,var(--accent) 0%,var(--accent-deep) 100%);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(255,139,123,.45);transition:all .22s var(--ease)}
-#listToggleBtn:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(255,139,123,.55)}
-#listToggleBtn .lt-icon{font-size:15px;line-height:1}
-#listToggleBtn .lt-count{font-size:11px;padding:2px 9px;border-radius:var(--r-pill);background:rgba(255,255,255,.25);font-weight:700}
+/* 一覧を開くフローティングボタン (地図右上) */
+#listToggleBtn{position:absolute;top:14px;right:14px;z-index:600;padding:10px 16px;border:none;border-radius:var(--r-pill);background:linear-gradient(135deg,var(--accent) 0%,var(--accent-deep) 100%);color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:'Noto Sans JP',sans-serif;display:flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(255,139,123,.4);transition:all .22s var(--ease)}
+#listToggleBtn:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(255,139,123,.5)}
+#listToggleBtn .lt-icon{font-size:14px;line-height:1}
+#listToggleBtn .lt-count{font-size:11px;padding:2px 8px;border-radius:var(--r-pill);background:rgba(255,255,255,.25);font-weight:700}
 #listToggleBtn.is-open{display:none}
+
+/* Leafletの左上コントロール: 詳細/シンプル/鉄道路線を拡大縮小ボタンの「上」に並べる */
+.leaflet-top.leaflet-left{display:flex;flex-direction:column}
+.leaflet-top.leaflet-left .leaflet-control-layers{order:1}
+.leaflet-top.leaflet-left .leaflet-control-zoom{order:2}
 #panel::-webkit-scrollbar{width:6px}
 #panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 #overlay{display:none;position:fixed;inset:0;background:rgba(61,46,46,.32);backdrop-filter:blur(2px);z-index:999;animation:fadeIn .3s var(--ease)}
@@ -1657,7 +1662,7 @@ var railwayLayer = L.tileLayer("https://{s}.tiles.openrailwaymap.org/standard/{z
 L.control.layers(
   { "詳細": tilePale, "シンプル": tileSimple },
   { "🚆 鉄道路線": railwayLayer },
-  { position: "topright", collapsed: false }
+  { position: "topleft", collapsed: false }
 ).addTo(map);
 
 // ========== Create markers ==========
