@@ -217,9 +217,13 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 #mobile-toggle:active{transform:translateX(-50%) scale(.96)}
 
 /* Panel */
-/* 詳細パネル: 学校一覧ドロワーの下部からスライドアップ (2/3を占有) */
+/* 詳細パネル — 既定モード(compact): 学校一覧ドロワー下部から 67vh で上にスライド */
 #panel{position:fixed;right:0;bottom:-100vh;width:360px;max-width:100vw;height:67vh;background:var(--surface);box-shadow:0 -10px 30px rgba(0,0,0,.18);z-index:1000;transition:bottom .45s var(--ease-spring);overflow-y:auto;display:flex;flex-direction:column;border-top:1px solid var(--border-soft);border-left:1px solid var(--border-soft)}
 #panel.open{bottom:0}
+
+/* フルハイトモード (地図から直接学校クリック時): 右からスライドイン・100vh */
+#panel.mode-full{top:0;bottom:auto;right:-400px;height:100vh;transition:right .5s var(--ease-spring);border-top:none}
+#panel.mode-full.open{right:0}
 
 /* 右側スライドドロワー: 学校一覧 */
 #listDrawer{position:fixed;top:0;right:-380px;width:360px;max-width:100vw;height:100vh;background:var(--surface);box-shadow:var(--shadow-lg);z-index:998;transition:right .45s var(--ease-spring);overflow-y:auto;display:flex;flex-direction:column;border-left:1px solid var(--border-soft)}
@@ -1848,7 +1852,7 @@ S.forEach(function(s, i) {
     idx: i
   };
   markers.push(hsEntry);
-  marker.on("click", function() { openPanel(hsEntry); });
+  marker.on("click", function() { openPanel(hsEntry, { fromMap: true }); });
 });
 
 // ========== Create university markers (◆◇ diamond shape) ==========
@@ -1926,7 +1930,7 @@ U.forEach(function(u, ui) {
     idx: ui
   };
   univMarkers.push(univEntry);
-  marker.on("click", function() { openPanel(univEntry); });
+  marker.on("click", function() { openPanel(univEntry, { fromMap: true }); });
 });
 // Merge into markers so existing iteration code can include universities
 univMarkers.forEach(function(um){ markers.push(um); });
@@ -2882,10 +2886,12 @@ function normalizeLineName(text) {
   return out;
 }
 
-function openPanel(arg) {
+function openPanel(arg, opts) {
   // arg can be a marker entry object (preferred) or a numeric index for backward compat
+  // opts: { fromMap: true } で地図クリック起点ならフルハイトモードを使用
   var m = (typeof arg === "number") ? markers[arg] : arg;
   if (!m) return;
+  var fromMap = !!(opts && opts.fromMap);
   var isUniv = m.kind === 1;
 
   // 名前 + バッジ (高校 / 大学)
@@ -2970,9 +2976,17 @@ function openPanel(arg) {
   // 地図をその学校にフォーカス（panel展開で右領域が狭くなるが、ぼかしはしない）
   map.flyTo([m.lat, m.lng], Math.max(map.getZoom(), 14), { duration: 0.8 });
 
-  // パネルはドロワーの下からスライドアップする設計。
-  // パネルを開く時は必ずドロワーも開いて、上に学校一覧、下に詳細という並びに。
-  if (typeof openListDrawer === "function") openListDrawer();
+  if (fromMap) {
+    // 地図直クリック: 右からスライドインのフルハイトモード。ドロワーは閉じる
+    panel.classList.add("mode-full");
+    if (typeof closeListDrawer === "function" && listDrawer.classList.contains("open")) {
+      closeListDrawer();
+    }
+  } else {
+    // 学校一覧クリック: 既定の compact モード (67vh、ドロワー下からスライドアップ)
+    panel.classList.remove("mode-full");
+    if (typeof openListDrawer === "function") openListDrawer();
+  }
   panel.classList.add("open");
 }
 
@@ -2999,8 +3013,11 @@ function closeListDrawer(){
   listDrawer.setAttribute("aria-hidden", "true");
   listToggleBtn.classList.remove("is-open");
   listToggleBtn.setAttribute("aria-expanded", "false");
-  // ドロワーを閉じる時はパネルも一緒に閉じる(ドロワー横に取り残されるのを防ぐ)
-  if (panel.classList.contains("open")) closePanel();
+  // compactモード(ドロワー下からスライドアップ)で開いている時のみ一緒に閉じる
+  // フルハイトモード(右からスライドイン)はドロワーと独立して動作
+  if (panel.classList.contains("open") && !panel.classList.contains("mode-full")) {
+    closePanel();
+  }
 }
 if (listToggleBtn) listToggleBtn.addEventListener("click", function(){
   if (listDrawer.classList.contains("open")) closeListDrawer();
