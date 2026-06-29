@@ -1870,6 +1870,10 @@ var HS_MARKER_RADIUS = IS_MOBILE ? 7 : 5;
 var HS_MARKER_HOVER  = IS_MOBILE ? 10 : 8;
 var HS_MARKER_EMPHASIZE = IS_MOBILE ? 11 : 9;
 
+// 高校 circleMarker は Canvas renderer で描画 (SVGだとiOS Safariで個別pathへの
+// タッチイベントが不安定になり、タップで詳細が開かない症状が出るため)
+var hsCanvasRenderer = L.canvas({ padding: 0.5 });
+
 var markers = [];
 // クラスタリング: 密集したマーカーを数字バブルに集約 (ズームで分解)
 var markerLayer = L.markerClusterGroup({
@@ -1922,7 +1926,9 @@ S.forEach(function(s, i) {
     color: type === 0 ? darkColor : color,
     weight: 2,
     fillOpacity: type === 0 ? 0.95 : 1,
-    opacity: 1
+    opacity: 1,
+    renderer: hsCanvasRenderer,
+    bubblingMouseEvents: false
   });
 
   // Permanent label (visible at zoom >= 12)
