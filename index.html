@@ -1528,20 +1528,28 @@ function detectSelectionContext() {
   for (var i = 0; i < 6; i++) if (fs.p[i]) activePrefs.push(i);
   if (activePrefs.length === 0) return null;
 
-  // city モード判定: 単一府県 + その府県の市区町村が部分表示
-  if (activePrefs.length === 1) {
-    var p = activePrefs[0];
-    var stats = (typeof getActiveCityStats === "function") ? getActiveCityStats() : [];
+  // city モード判定: アクティブな府県のいずれかで市区町村が部分表示
+  // 単一府県/複数府県どちらでも、絞り込みがあれば「visibleな市区町村のみ」を切り取り
+  var stats = (typeof getActiveCityStats === "function") ? getActiveCityStats() : [];
+  var cityFilterActive = false;
+  var cityFeats = [];
+  activePrefs.forEach(function(p){
     var prefCities = stats.filter(function(s){ return s.pref === p; });
     var visibleCities = prefCities.filter(function(s){ return !fs.hiddenCities[s.key]; });
-    if (prefCities.length > 1 && visibleCities.length < prefCities.length && visibleCities.length > 0) {
-      var feats = visibleCities.map(function(s){
-        return ADMIN_CITY.features.find(function(f){
-          return f.properties.N03_001 === PN[p] && f.properties.N03_004 === s.city;
-        });
-      }).filter(Boolean);
-      if (feats.length) return { type: "city", features: feats, prefIdxs: [p] };
+    // この府県で部分絞り込みあり?
+    if (prefCities.length > 1 && visibleCities.length < prefCities.length) {
+      cityFilterActive = true;
     }
+    // 表示中の市区町村features を全部集める
+    visibleCities.forEach(function(s){
+      var feat = ADMIN_CITY.features.find(function(f){
+        return f.properties.N03_001 === PN[p] && f.properties.N03_004 === s.city;
+      });
+      if (feat) cityFeats.push(feat);
+    });
+  });
+  if (cityFilterActive && cityFeats.length) {
+    return { type: "city", features: cityFeats, prefIdxs: activePrefs };
   }
 
   // pref モード: アクティブな府県すべて
@@ -1606,7 +1614,7 @@ function drawAdminClip(ctx) {
   adminMaskLayer = L.polygon([WORLD_RING].concat(holes), {
     pane: "adminMaskPane",
     color: "#1a2540", fillColor: "#1a2540",
-    fillOpacity: 0.72,
+    fillOpacity: 0.50,
     stroke: false, interactive: false,
     className: "admin-mask-poly",
     fillRule: "evenodd"
