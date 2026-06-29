@@ -226,6 +226,13 @@ html,body{height:100%;overflow:hidden;font-family:'Noto Sans JP','Hiragino Sans'
 .leaflet-top.leaflet-left{display:flex;flex-direction:column}
 .leaflet-top.leaflet-left .leaflet-control-layers{order:1}
 .leaflet-top.leaflet-left .leaflet-control-zoom{order:2}
+
+/* 拡大縮小ボタン: leaflet-touchのデフォルト枠線を消してデザインを統一 */
+.leaflet-touch .leaflet-bar{border:none}
+.leaflet-control-zoom{box-shadow:var(--shadow)!important;border-radius:var(--r)!important;overflow:hidden;background:rgba(255,255,255,.95)}
+.leaflet-control-zoom a{background:transparent!important;border:none!important;color:var(--ink)!important;transition:background .15s var(--ease)}
+.leaflet-control-zoom a:hover{background:var(--accent-soft)!important;color:var(--accent-deep)!important}
+.leaflet-control-zoom-in{border-bottom:1px solid var(--border-soft)!important}
 #panel::-webkit-scrollbar{width:6px}
 #panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 #overlay{display:none}
